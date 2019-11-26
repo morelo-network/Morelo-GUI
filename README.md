@@ -2,7 +2,7 @@
 <br />
 <p align="center">
   <a href="https://gitlab.com/galaxia-project/app/pywallet">
-    <img src="assets/logo_green.png" alt="Logo" width="80" height="80"><span style="margin-left: 25px;font-size:46px; color: rgb(26, 188, 156);">XI-GUIWallet</span>
+    <img src="assets/logo_green.png" alt="Logo" width="80" height="80"><span size="46px" color="rgb(26, 188, 156)"> XI-GUIWallet</span>
   </a>
 
   <h3 align="center">Xi-GUIWallet</h3>
