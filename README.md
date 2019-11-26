@@ -1,0 +1,1 @@
+Xi-GUIWallet is 3rd party application for menaging your Galaxia wallet
