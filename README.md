@@ -1,4 +1,4 @@
-<!-- PROJECT LOGO -->
+
 <br />
 <p align="center">
   <a href="https://gitlab.com/galaxia-project/app/pywallet">
@@ -19,7 +19,6 @@
 
 
 
-<!-- TABLE OF CONTENTS -->
 
 ### Table of Contents
 
@@ -33,7 +32,6 @@
 
 
 
-<!-- ABOUT THE PROJECT -->
 
 ### About The Project
 
@@ -51,7 +49,6 @@ Of course that wallet doesn't giving you full control of Galaxia wallet, but giv
 * [PyQt 5](https://pypi.org/project/PyQt5/)
 * [QrCode](https://pypi.org/project/qrcode/)
 
-<!-- GETTING STARTED -->
 
 ### Getting Started
 
@@ -76,7 +73,6 @@ python -m pip install qrcode
 ```
 
 
-<!-- USAGE EXAMPLES -->
 
 ### Usage
 
@@ -86,7 +82,6 @@ python Xi-GUIWallet.py
 ```
 Then follow steps in application.
 
-<!-- CONTACT -->
 
 ## Contact
 
