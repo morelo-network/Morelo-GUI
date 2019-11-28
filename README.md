@@ -65,11 +65,15 @@ Just download, run and follow installation steps.
 
 * PyQt 5
 * QrCode
+* Requests
+* Psutil
 
 Open your terminal and type commands above:
 ```sh
 python -m pip install PyQt5
 python -m pip install qrcode
+python -m pip install requests
+python -m pip install psutil
 ```
 
 
