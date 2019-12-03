@@ -1,4 +1,3 @@
-
 <br />
 <p align="center">
   <a href="https://gitlab.com/galaxia-project/app/pywallet">
@@ -8,7 +7,7 @@
   <h3 align="center">Xi-GUIWallet</h3>
 
   <p align="center">
-    An awesome README template to jumpstart your projects!
+    Easy to use and user friendly Galaxia GUI wallet!
     <br />
     <br />
     <a href="https://gitlab.com/galaxia-project/app/pywallet/issues">Report Bug</a>
@@ -71,7 +70,7 @@ Just download, run and follow installation steps.
 Open your terminal and type commands above:
 ```sh
 python -m pip install PyQt5
-python -m pip install qrcode
+python -m pip install qrcode[pil]
 python -m pip install requests
 python -m pip install psutil
 ```
