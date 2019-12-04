@@ -66,6 +66,7 @@ If you want run GUI wallet script by self or you using other OS than windows you
 Download, run installator and follow installation steps.
 
 * [Latest Galaxia binaries](https://releases.galaxia-project.com/stable/latest/)
+
 Download and unpack binaries (xi-daemon, xi-pgservice) in same folder as script.
 
 * PyQt 5
