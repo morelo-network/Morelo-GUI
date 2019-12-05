@@ -1,30 +1,140 @@
-import sys, requests, json, threading, subprocess, configparser
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from pathlib import Path
-from tkinter import Tk, filedialog
-import psutil, time, random, string, queue
-from hashlib import sha256
-from datetime import datetime
+missingLibs = False
+try:
+	import io
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install io')
+	missingLibs = True
+try:
+	import datetime
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install datetime')
+	missingLibs = True
+try:
+	import pathlib
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install pathlib')
+	missingLibs = True
+try:
+	import sys
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install sys')
+	missingLibs = True
+try:
+	import json
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install json')
+	missingLibs = True
+try:
+	import threading
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install threading')
+	missingLibs = True
+try:
+	from subprocess import run, Popen, PIPE, CREATE_NO_WINDOW
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install subprocess')
+	missingLibs = True
+try:
+	import configparser
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install configparser')
+	missingLibs = True
+try:
+	from psutil import NoSuchProcess, AccessDenied, ZombieProcess, process_iter
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install psutil')
+	missingLibs = True
+try:
+	from time import sleep
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install time')
+	missingLibs = True
+try:
+	from tkinter import Tk, filedialog
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install tkinter')
+	missingLibs = True
+try:
+	from random import choice
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install random')
+	missingLibs = True
+try:
+	import string
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install string')
+	missingLibs = True
+try:
+	import queue
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install queue')
+	missingLibs = True
+try:
+	import os
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install os')
+	missingLibs = True
+try:
+	import requests
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install requests')
+	missingLibs = True
+try:
+	import pyperclip
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install pyperclip')
+	missingLibs = True
+try:
+	import image
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install image')
+	missingLibs = True
+try:
+	from PyQt5.QtWidgets import *
+	from PyQt5.QtGui import *
+	from PyQt5.QtCore import *
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install PyQt5')
+	missingLibs = True
+if missingLibs:
+	sleep(5)
+	sys.exit()
 noQR = False
 try:
 	import qrcode
-	from io import BytesIO
 except:
 	noQR = True
-	print('INFO: QRCode module not found')
+	print('INFO: QRCode module not found, running without it')
 
 def randomString(stringLength=10):
 	letters = string.ascii_lowercase
-	return ''.join(random.choice(letters) for i in range(stringLength))
+	return ''.join(choice(letters) for i in range(stringLength))
 
 def ProcessExists(processName):
-	for proc in psutil.process_iter():
+	for proc in process_iter():
 		try:
 			if processName.lower() in proc.name().lower():
 				return True
-		except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+		except (NoSuchProcess, AccessDenied, ZombieProcess):
 			pass
 	return False
 
@@ -114,7 +224,10 @@ def GetWalletBalance():
 	return json.loads(response.text)
    
 def GetWalletAddress():
-	response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getAddresses", "params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+	try:
+		response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getAddresses", "params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+	except:
+		sleep(0.1)
 	return json.loads(response.text)
 
 def GetWalletTransactions(start, count):
@@ -143,7 +256,7 @@ class App(QWidget):
 		self.pgservice = 0
 		self.xi_daemon = 0
 		self.XiNetworkState, self.walletBalance, self.walletBalanceLocked = 0, 0, 0
-		self.wallet_address = ''
+		self.wallet_address = 'gxi123'
 		self.exit_from_tray = False
 		self.valid_amount = False
 		self.valid_address = False
@@ -171,6 +284,7 @@ class App(QWidget):
 				if self.xi_daemon: self.xi_daemon.terminate()
 			if self.timer: self.timer.cancel()
 			if self.notifications: self.notifications = False
+			self.tray_icon.hide()
 			self.running = False
 			event.accept()
 	
@@ -199,6 +313,8 @@ class App(QWidget):
 		self.hLabelCopyrights = self.GUICtrlCreateLabel('All rights reserved © 2019 MrKris7100', 550, 450, 0, 0, 0, 0, '12px')
 		self.hLabelTip = self.GUICtrlCreateLabel('What you want to do?', 250, 320, 300, 0, 0, 0, '14px')
 		self.hLabelTip.setAlignment(Qt.AlignCenter)
+		self.hLabelInitErr = self.GUICtrlCreateLabel('Failed to start daemon', 250, 300, 300, 0, 0, '#b53b3b', '14px')
+		self.hLabelInitErr.setAlignment(Qt.AlignCenter)
 		
 		self.hLabelPass = self.GUICtrlCreateLabel('This wallet is protected, enter password to unlock', 250, 220, 300, 0, 0, 0, '11px')
 		self.hLabelPassSet = self.GUICtrlCreateLabel('Specify password for new wallet (can be empty)', 250, 220, 300, 0, 0, 0, '11px')
@@ -212,6 +328,7 @@ class App(QWidget):
 		self.hLabelPassSet.hide()
 		self.hButtonPassSet.hide()
 		self.hLabelPassWrong.hide()
+		self.hLabelInitErr.hide()
 		
 		self.hButtonCreate = self.GUICtrlCreateButton('', 250, 200, 100, 100)
 		GUICtrlSetBkColor(self.hButtonCreate, "url('./assets/wallet_new.png')")
@@ -332,6 +449,7 @@ class App(QWidget):
 		self.hTableTransactions.horizontalHeader().resizeSection(0, 120)
 		self.hTableTransactions.horizontalHeader().resizeSection(1, 265)
 		self.hTableTransactions.horizontalHeader().resizeSection(2, 183)
+		self.tabsControls[self.hButtonHistory.objectName()] = [self.hTableTransactions]
 		#About TAB
 		self.hLabelAbout = self.GUICtrlCreateLabel('''Galaxia GUI Wallet v1.0
 
@@ -346,8 +464,6 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hButtonDonate = self.GUICtrlCreateButton('Donate', 215, 150, 75, 30)
 		
 		self.tabsControls[self.hButtonAbout.objectName()] = [self.hLabelAbout, self.hButtonDonate]
-		
-		self.tabsControls[self.hButtonHistory.objectName()] = [self.hTableTransactions]
 		
 		for ctrl in self.tabsControls[self.hButtonAbout.objectName()]:
 			ctrl.hide()
@@ -382,7 +498,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 			ctrl.hide()
 		self.tray_icon.show()
 		#Wallet initialization
-		threading.Timer(0, self.InitDaemon).start()
+		threading.Timer(0.5 if not '--offline' in app.arguments() else 0.0, self.InitDaemon).start()
 	
 	def GetNodeInfo(self):
 		while 1:
@@ -390,7 +506,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 				response = requests.post('http://127.0.0.1:22869/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 				break
 			except:
-				time.sleep(0.1)
+				sleep(0.1)
 			if not self.running: return
 		return json.loads(response.text)
 	
@@ -399,10 +515,10 @@ If you enjoy the program you can support me by donating some GLX using button be
 			try:
 				item = self.notQueue.get(False)
 				if not int(config['wallet']['disablenotifications']): self.tray_icon.showMessage('New transaction', item[0] + '\nNew transaction found\nTx hash (' + item[1] + ')\nAmount: ' + item[2], msecs=3000)
-				time.sleep(3)
+				sleep(3)
 			except:
 				pass
-			time.sleep(0.1)
+			sleep(0.1)
 	
 	def eventFilter(self, obj, event):
 		type = event.type()
@@ -428,7 +544,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hInputWalletAddress.setText(self.wallet_address)
 	
 	def UpdateQrCode(self):
-		buf = BytesIO()
+		buf = io.BytesIO()
 		qr = qrcode.QRCode(version=1, box_size=5, border=1)
 		qr.add_data(self.wallet_address)
 		qr.make(True)#self.wallet_address)
@@ -576,7 +692,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 					tkroot.withdraw()
 					file_path = filedialog.askopenfilename(title='Select wallet file', filetypes=[('Wallet containers', '*.wallet')])
 					tkroot.destroy()
-					if Path(file_path).is_file():
+					if pathlib.Path(file_path).is_file():
 						config['wallet']['path'] = file_path
 						with open("Wallet.ini", "w") as configfile:
 							config.write(configfile)
@@ -605,17 +721,10 @@ If you enjoy the program you can support me by donating some GLX using button be
 					self.hInputAmount.setText('%.6f' % float(self.walletBalance - 0.01))
 				#Address copy button
 				elif obj == self.hButtonWalletCopy:
-					tkroot = Tk()
-					tkroot.withdraw()
-					tkroot.clipboard_clear()
-					tkroot.clipboard_append(self.wallet_address)
-					tkroot.destroy()
+					threading.Timer(0, self.AddressToClip).start()
 				#Address paste button
 				elif obj == self.hButtonAddressPaste:
-					tkroot = Tk()
-					tkroot.withdraw()
-					self.hInputAddress.setText(tkroot.clipboard_get())
-					tkroot.destroy()
+					threading.Timer(0, self.AddressFromClip).start()
 				#Send founds button
 				elif obj== self.hButtonSendSend:
 					sending = True
@@ -632,9 +741,13 @@ If you enjoy the program you can support me by donating some GLX using button be
 							self.tray_icon.showMessage('Unable to send transaction', respond['error']['message'], msecs=3000)
 						else:
 							print('Transaction sent! Tx hash (' + respond['result']['transaction_hash'] + ')')
-							self.tray_icon.showMessage('Transaction sent!', 'Tx hash (' + respond['result']['transaction_hash'], msecs=3000)
-							
-		return
+							self.tray_icon.showMessage('Transaction sent!', 'Tx hash (' + respond['result']['transaction_hash'] + ')', msecs=3000)
+	
+	def AddressToClip(self):
+		pyperclip.copy(self.wallet_address)
+	
+	def AddressFromClip(self):
+		self.hInputAddress.setText(pyperclip.paste())
 	
 	def NewWallet(self):
 		self.hLabelInit.show()
@@ -645,7 +758,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hLabelPassSet.hide()
 		self.hInputPass.hide()
 		self.hButtonPassSet.hide()
-		subprocess.run('xi-pgservice.exe -g -w ' + config['wallet']['path'] +' --network Galaxia.MainNet -p "' + self.pwd + '"')#, creationflags = subprocess.CREATE_NO_WINDOW)
+		run('xi-pgservice.exe -g -w "' + config['wallet']['path'] +'" --network Galaxia.MainNet -p "' + self.pwd + '"', creationflags = CREATE_NO_WINDOW)
 		with open("Wallet.ini", "w") as configfile:
 			config.write(configfile)
 		self.InitWallet()
@@ -715,11 +828,11 @@ If you enjoy the program you can support me by donating some GLX using button be
 		for i in range(times):
 			if not self.valid_amount: self.hLabelAmountErr.hide()
 			if not self.valid_address: self.hLabelAddressErr.hide()
-			time.sleep(delay)
+			sleep(delay)
 			if self.activeTab != self.hButtonSend: break
 			if not self.valid_amount: self.hLabelAmountErr.show()
 			if not self.valid_address: self.hLabelAddressErr.show()
-			time.sleep(delay)
+			sleep(delay)
 	
 	def XiNetworkUpdate(self):
 		nodeInfo = self.GetNodeInfo()
@@ -751,23 +864,32 @@ If you enjoy the program you can support me by donating some GLX using button be
 				self.hLabelTip.hide()
 				self.hLabelInit.show()
 				print('INFO: Starting xi-daemon')
-				self.xi_daemon = subprocess.Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = subprocess.CREATE_NO_WINDOW)
+				self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NO_WINDOW)
 				while 1:
 					nodeInfo = self.GetNodeInfo()
 					nodeSync = nodeInfo['result']['p2p']['height']
 					if nodeSync: break
-					time.sleep(0.1)
-				if Path(config['wallet']['path']).is_file():
+					sleep(0.1)
+				if pathlib.Path(config['wallet']['path']).is_file():
 					print('INFO: Wallet file found')
 					self.InitWallet()
 				else:
-					time.sleep(1)
+					sleep(1)
 					print('ERROR: Wallet file not found')
 					self.hButtonCreate.show()
 					self.hButtonOpen.show()
 					self.hLabelTip.show()
 					self.hLabelInit.hide()
-					self.hShow.click()
+					if int(config['wallet']['autohide']):
+						self.tray_icon.showMessage('Wallet hidden to tray', msecs=3000)
+					else:
+						self.hShow.click()
+			else:
+				self.hLabelInitErr.show()
+				self.hShow.click()
+				self.hButtonCreate.hide()
+				self.hButtonOpen.hide()
+				self.hLabelTip.hide()
 		else:
 			print('INFO: Running wallet in offline mode')
 			self.hOffline.click()
@@ -784,12 +906,12 @@ If you enjoy the program you can support me by donating some GLX using button be
 					print('INFO: Starting xi-pgservice (New wallet generated)')
 				else:
 					print('INFO: Starting xi-pgservice (Password protected check)')
-				self.pgservice = subprocess.Popen("xi-pgservice.exe -w " + config['wallet']['path'] + ' --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '"', stdout=subprocess.PIPE)#, creationflags = subprocess.CREATE_NO_WINDOW)
+				self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '"', stdout=PIPE, creationflags = CREATE_NO_WINDOW)
 				threading.Timer(2.5, self.PgInitialized).start()
 				while self.pgservice.poll() is None:
 					if self.pg_initialized: 
 						return
-					time.sleep(0.1)
+					sleep(0.1)
 				stdout = str(self.pgservice.communicate()[0])
 				if 'password is wrong' in stdout:
 					print('ERROR: Wallet have password')
@@ -797,6 +919,9 @@ If you enjoy the program you can support me by donating some GLX using button be
 				else:
 					print("That shouldn't happen!!!")
 					self.close()
+			else:
+				self.hLabelInitErr.setText('Failed to start wallet service')
+				self.hLabelInitErr.show()
 		else:
 			self.hOffline.click()
 				
@@ -822,12 +947,12 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hInputPass.setText('')
 		print('INFO: Starting xi-pgservice (Try with password)')
 		self.pg_initialized = False
-		self.pgservice = subprocess.Popen('xi-pgservice.exe -w ' + config['wallet']['path'] + ' --rpc-legacy-security --network Galaxia.MainNet -p "' + pwd + '"', creationflags = subprocess.CREATE_NO_WINDOW, stdout=subprocess.PIPE)
+		self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + pwd + '"', creationflags = CREATE_NO_WINDOW, stdout=PIPE)
 		threading.Timer(2.5, self.PgInitialized).start()
 		while self.pgservice.poll() is None:
 			if self.pg_initialized: 
 				return
-			time.sleep(0.1)
+			sleep(0.1)
 		stdout = str(self.pgservice.communicate()[0])
 		if 'password is wrong' in stdout:
 			print('ERROR: Wrong password')
@@ -838,6 +963,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 			self.hButtonPass.show()
 			self.hLabelInit.hide()
 		else:
+			print(stdout)
 			print("That shouldn't happen!!!")
 			self.close()
 
@@ -848,6 +974,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 			ctrl.show()
 		self.UpdateWalletAddress()
 		self.UpdateBalance()
+		if not noQR: self.UpdateQrCode()
 		self.hLabelInit.hide()
 		self.hLabelLogo.hide()
 		self.hButtonCreate.hide()
@@ -900,7 +1027,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 			#Get transactions hashes list
 			for transaction in transactions:
 				tx_info = GetTransactionInfo(transaction)
-				date = datetime.fromtimestamp(int(tx_info['result']['transaction']['timestamp']))
+				date = datetime.datetime.fromtimestamp(int(tx_info['result']['transaction']['timestamp']))
 				amount = tx_info['result']['transaction']['amount']
 				amount = amount / 1000000
 				rowPosition = self.hTableTransactions.rowCount()
@@ -977,7 +1104,7 @@ if __name__ == '__main__':
 	donate_address = 'enter donate address here'
 	config = configparser.ConfigParser()
 	#Initial config
-	if not Path("Wallet.ini").is_file():
+	if not pathlib.Path("Wallet.ini").is_file():
 		print('INFO: No wallet config, generate new config file')
 		newwallet = True
 		with open("Wallet.ini", "w") as configfile:
@@ -985,6 +1112,13 @@ if __name__ == '__main__':
 			config.write(configfile)
 			print('INFO: Config saved')
 	config.read("Wallet.ini")
+	if not '--offline' in sys.argv:
+		pathPg = 'xi-pgservice.exe' if os.name == 'nt' else 'xi-pgservice'
+		pathDaemon = 'xi-daemon.exe' if os.name == 'nt' else 'xi-daemon'
+		if not pathlib.Path(pathPg).is_file() or not pathlib.Path(pathDaemon).is_file():
+			print('ERROR: Galaxia binaries not found! Make sure to have "xi-daemon" and "xi-pgservice" files in wallet folder')
+			sleep(5)
+			sys.exit()
 	app = QApplication(sys.argv)
 	app.setStyleSheet(style)
 	ex = App()

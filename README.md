@@ -51,39 +51,48 @@ Of course that wallet doesn't giving you full control of Galaxia wallet, but giv
 
 ### Getting Started
 
-1) Download latest release
-2) Unpack with any archive unpacker
-3) Run Xi-GUIWallet
-4) Follow steps in application to create or open existing wallet
+1) Download latest GUI wallet release.
+2) Download latest Galaxia binaries.
+3) Unpack both with any archive unpacker in same folder.
+4) Run Xi-GUIWallet.
+5) Follow steps in application to create or open existing wallet.
 
 ### Prerequisites
 
+If you want run GUI wallet script by self or you using other OS than windows you need that things:
+
 * [Python 3.7](https://www.python.org/downloads/)
 
-Just download, run and follow installation steps.
+Download, run installator and follow installation steps.
+
+* [Latest Galaxia binaries](https://releases.galaxia-project.com/stable/latest/)
+
+Download and unpack binaries (xi-daemon, xi-pgservice) in same folder as script.
 
 * PyQt 5
 * QrCode
 * Requests
 * Psutil
 
-Open your terminal and type commands above:
+Open your terminal and type commands above to install required packages:
 ```sh
 python -m pip install PyQt5
 python -m pip install qrcode[pil]
 python -m pip install requests
 python -m pip install psutil
 ```
-
+If some another package is missed, script will tell you during execution.
 
 
 ### Usage
 
-Run 'Xi-GUIWallet' from latest release or run python script using command:
+If you using windows just run 'Xi-GUIWallet' from latest release or run python script using command:
 ```sh
 python Xi-GUIWallet.py
 ```
 Then follow steps in application.
+
+If you using another OS than windows you need run python script manually.
 
 
 ## Contact
