@@ -10,11 +10,11 @@
     Easy to use and user friendly Galaxia GUI wallet!
     <br />
     <br />
-    <a href="https://gitlab.com/galaxia-project/app/pywallet/issues">**Report Bug**</a>
+    [**Report Bug**](https://gitlab.com/galaxia-project/app/pywallet/issues)
     ·
-    <a href="https://gitlab.com/galaxia-project/app/pywallet/issues">**Request Feature**</a>
-    
-    <a href="https://gitlab.com/galaxia-project/app/pywallet/releases">**Releases**</a>
+    [**Request Feature**](https://gitlab.com/galaxia-project/app/pywallet/issues)
+    ·
+    [**Releases**](https://gitlab.com/galaxia-project/app/pywallet/releases)
   </p>
 </p>
 
