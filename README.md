@@ -99,6 +99,6 @@ If you using another OS than windows you need run python script manually.
 
 ## Contact
 
-Krzysztof Walędziak - mrkris7100@gmail.com
+Krzysztof Walędziak - E-mail: mrkris7100@gmail.com - [Discord](https://discordapp.com/): Mrkris7100#1836
 
 Project Link: [https://gitlab.com/galaxia-project/app/pywallet](https://gitlab.com/galaxia-project/app/pywallet)
