@@ -36,10 +36,10 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install threading')
 	missingLibs = True
 try:
-	import pathlib
+	from subprocess import run, Popen, PIPE, CREATE_NO_WINDOW
 except:
 	pass
-	print('ERROR: Missing module, try install it by command: python -m pip install threading')
+	print('ERROR: Missing module, try install it by command: python -m pip install subprocess')
 	missingLibs = True
 try:
 	import configparser
@@ -48,19 +48,25 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install configparser')
 	missingLibs = True
 try:
-	import psutil
+	from psutil import NoSuchProcess, AccessDenied, ZombieProcess, process_iter
 except:
 	pass
 	print('ERROR: Missing module, try install it by command: python -m pip install psutil')
 	missingLibs = True
 try:
-	import time
+	from time import sleep
 except:
 	pass
 	print('ERROR: Missing module, try install it by command: python -m pip install time')
 	missingLibs = True
 try:
-	import random
+	from tkinter import Tk, filedialog
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install tkinter')
+	missingLibs = True
+try:
+	from random import choice
 except:
 	pass
 	print('ERROR: Missing module, try install it by command: python -m pip install random')
@@ -96,6 +102,12 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install pyperclip')
 	missingLibs = True
 try:
+	import image
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install image')
+	missingLibs = True
+try:
 	from PyQt5.QtWidgets import *
 	from PyQt5.QtGui import *
 	from PyQt5.QtCore import *
@@ -104,7 +116,7 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install PyQt5')
 	missingLibs = True
 if missingLibs:
-	time.sleep(5)
+	sleep(5)
 	sys.exit()
 noQR = False
 try:
@@ -115,14 +127,14 @@ except:
 
 def randomString(stringLength=10):
 	letters = string.ascii_lowercase
-	return ''.join(random.choice(letters) for i in range(stringLength))
+	return ''.join(choice(letters) for i in range(stringLength))
 
 def ProcessExists(processName):
-	for proc in psutil.process_iter():
+	for proc in process_iter():
 		try:
 			if processName.lower() in proc.name().lower():
 				return True
-		except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+		except (NoSuchProcess, AccessDenied, ZombieProcess):
 			pass
 	return False
 
@@ -212,7 +224,10 @@ def GetWalletBalance():
 	return json.loads(response.text)
    
 def GetWalletAddress():
-	response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getAddresses", "params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+	try:
+		response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getAddresses", "params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+	except:
+		sleep(0.1)
 	return json.loads(response.text)
 
 def GetWalletTransactions(start, count):
@@ -491,7 +506,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 				response = requests.post('http://127.0.0.1:22869/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 				break
 			except:
-				time.sleep(0.1)
+				sleep(0.1)
 			if not self.running: return
 		return json.loads(response.text)
 	
@@ -500,10 +515,10 @@ If you enjoy the program you can support me by donating some GLX using button be
 			try:
 				item = self.notQueue.get(False)
 				if not int(config['wallet']['disablenotifications']): self.tray_icon.showMessage('New transaction', item[0] + '\nNew transaction found\nTx hash (' + item[1] + ')\nAmount: ' + item[2], msecs=3000)
-				time.sleep(3)
+				sleep(3)
 			except:
 				pass
-			time.sleep(0.1)
+			sleep(0.1)
 	
 	def eventFilter(self, obj, event):
 		type = event.type()
@@ -673,9 +688,9 @@ If you enjoy the program you can support me by donating some GLX using button be
 					self.WalletStart()
 				#Wallet open button
 				elif obj == self.hButtonOpen:
-					tkroot = tkinter.Tk()
+					tkroot = Tk()
 					tkroot.withdraw()
-					file_path = tkinter.filedialog.askopenfilename(title='Select wallet file', filetypes=[('Wallet containers', '*.wallet')])
+					file_path = filedialog.askopenfilename(title='Select wallet file', filetypes=[('Wallet containers', '*.wallet')])
 					tkroot.destroy()
 					if pathlib.Path(file_path).is_file():
 						config['wallet']['path'] = file_path
@@ -743,7 +758,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hLabelPassSet.hide()
 		self.hInputPass.hide()
 		self.hButtonPassSet.hide()
-		subprocess.run('xi-pgservice.exe -g -w "' + config['wallet']['path'] +'" --network Galaxia.MainNet -p "' + self.pwd + '"')#, creationflags = subprocess.CREATE_NO_WINDOW)
+		run('xi-pgservice.exe -g -w "' + config['wallet']['path'] +'" --network Galaxia.MainNet -p "' + self.pwd + '"', creationflags = CREATE_NO_WINDOW)
 		with open("Wallet.ini", "w") as configfile:
 			config.write(configfile)
 		self.InitWallet()
@@ -813,11 +828,11 @@ If you enjoy the program you can support me by donating some GLX using button be
 		for i in range(times):
 			if not self.valid_amount: self.hLabelAmountErr.hide()
 			if not self.valid_address: self.hLabelAddressErr.hide()
-			time.sleep(delay)
+			sleep(delay)
 			if self.activeTab != self.hButtonSend: break
 			if not self.valid_amount: self.hLabelAmountErr.show()
 			if not self.valid_address: self.hLabelAddressErr.show()
-			time.sleep(delay)
+			sleep(delay)
 	
 	def XiNetworkUpdate(self):
 		nodeInfo = self.GetNodeInfo()
@@ -849,17 +864,17 @@ If you enjoy the program you can support me by donating some GLX using button be
 				self.hLabelTip.hide()
 				self.hLabelInit.show()
 				print('INFO: Starting xi-daemon')
-				self.xi_daemon = subprocess.Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = subprocess.CREATE_NO_WINDOW)
+				self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NO_WINDOW)
 				while 1:
 					nodeInfo = self.GetNodeInfo()
 					nodeSync = nodeInfo['result']['p2p']['height']
 					if nodeSync: break
-					time.sleep(0.1)
+					sleep(0.1)
 				if pathlib.Path(config['wallet']['path']).is_file():
 					print('INFO: Wallet file found')
 					self.InitWallet()
 				else:
-					time.sleep(1)
+					sleep(1)
 					print('ERROR: Wallet file not found')
 					self.hButtonCreate.show()
 					self.hButtonOpen.show()
@@ -891,12 +906,12 @@ If you enjoy the program you can support me by donating some GLX using button be
 					print('INFO: Starting xi-pgservice (New wallet generated)')
 				else:
 					print('INFO: Starting xi-pgservice (Password protected check)')
-				self.pgservice = subprocess.Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '"', stdout=subprocess.PIPE)#, creationflags = subprocess.CREATE_NO_WINDOW)
+				self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '"', stdout=PIPE, creationflags = CREATE_NO_WINDOW)
 				threading.Timer(2.5, self.PgInitialized).start()
 				while self.pgservice.poll() is None:
 					if self.pg_initialized: 
 						return
-					time.sleep(0.1)
+					sleep(0.1)
 				stdout = str(self.pgservice.communicate()[0])
 				if 'password is wrong' in stdout:
 					print('ERROR: Wallet have password')
@@ -932,12 +947,12 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hInputPass.setText('')
 		print('INFO: Starting xi-pgservice (Try with password)')
 		self.pg_initialized = False
-		self.pgservice = subprocess.Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + pwd + '"', creationflags = subprocess.CREATE_NO_WINDOW, stdout=subprocess.PIPE)
+		self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + pwd + '"', creationflags = CREATE_NO_WINDOW, stdout=PIPE)
 		threading.Timer(2.5, self.PgInitialized).start()
 		while self.pgservice.poll() is None:
 			if self.pg_initialized: 
 				return
-			time.sleep(0.1)
+			sleep(0.1)
 		stdout = str(self.pgservice.communicate()[0])
 		if 'password is wrong' in stdout:
 			print('ERROR: Wrong password')
@@ -948,6 +963,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 			self.hButtonPass.show()
 			self.hLabelInit.hide()
 		else:
+			print(stdout)
 			print("That shouldn't happen!!!")
 			self.close()
 
@@ -1101,7 +1117,7 @@ if __name__ == '__main__':
 		pathDaemon = 'xi-daemon.exe' if os.name == 'nt' else 'xi-daemon'
 		if not pathlib.Path(pathPg).is_file() or not pathlib.Path(pathDaemon).is_file():
 			print('ERROR: Galaxia binaries not found! Make sure to have "xi-daemon" and "xi-pgservice" files in wallet folder')
-			time.sleep(5)
+			sleep(5)
 			sys.exit()
 	app = QApplication(sys.argv)
 	app.setStyleSheet(style)
