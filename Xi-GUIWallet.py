@@ -36,7 +36,7 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install threading')
 	missingLibs = True
 try:
-	from subprocess import run, Popen, PIPE, CREATE_NO_WINDOW
+	from subprocess import run, Popen, PIPE, CREATE_NO_WINDOW, CREATE_NEW_CONSOLE
 except:
 	pass
 	print('ERROR: Missing module, try install it by command: python -m pip install subprocess')
@@ -137,6 +137,15 @@ def ProcessExists(processName):
 		except (NoSuchProcess, AccessDenied, ZombieProcess):
 			pass
 	return False
+	
+def ProcessClose(processName):
+	for proc in process_iter():
+		try:
+			if processName.lower() in proc.name().lower():
+				proc.kill()
+		except (NoSuchProcess, AccessDenied, ZombieProcess):
+			pass
+	return False
 
 def GUICtrlUpdateStyle(control):
 	style = control.type + '''#''' + control.objectName() + ''' {
@@ -220,12 +229,12 @@ def SendTransaction(receiver, amount, pay_id):
 	return json.loads(response.text)
    
 def GetWalletBalance():
-	response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getBalance", "params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+	response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getBalance", "password":"", "params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 	return json.loads(response.text)
    
 def GetWalletAddress():
 	try:
-		response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getAddresses", "params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+		response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getAddresses", "password":"","params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 	except:
 		sleep(0.1)
 	return json.loads(response.text)
@@ -238,6 +247,8 @@ def GetWalletTransactions(start, count):
 		for block in data['result']['items']:
 			for hash in block['transaction_hashes']:
 				transactions.append(hash)
+	else:
+		print("ERROR: Can't get transaction list")
 	return transactions
 	
 def GetTransactionInfo(hash):
@@ -267,6 +278,7 @@ class App(QWidget):
 		self.pg_initialized = False
 		self.running = True
 		self.pwd = ''
+		self.scanning = False
 		print('INFO: Window config initialized')
 		self.initUI()
 		
@@ -434,9 +446,14 @@ class App(QWidget):
 			self.hCheckboxNots.setCheckState(2)
 		self.hCheckboxNotsText = self.GUICtrlCreateLabel('Disable notifications', 245, 110, 0, 0, 0, 0, '13px')
 		
+		self.hLabelNode = self.GUICtrlCreateLabel('Network connection', 215, 155, 0, 0, 0, 0, '13px')
+		self.hComboNode = QComboBox(self)
+		for item in ['Local node', 'Public node #1', 'Public node #2', 'Own address']:
+			self.hComboNode.addItem(item)
+		
 		self.tabsControls[self.hButtonSettings.objectName()] = [self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
 		self.hCheckboxStartup, self.hCheckboxStartupBk, self.hCheckboxText, self.hCheckboxTrayClose, 
-		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText]
+		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText, self.hLabelNode]
 		
 		#Transactions TAB
 		self.hTableTransactions = QTableWidget(0, 3, self)
@@ -630,26 +647,14 @@ If you enjoy the program you can support me by donating some GLX using button be
 	def XiNetworkSetState(self, iState, iPercent = 0):
 		if iState != self.XiNetworkState:
 			self.XiNetworkState = iState
-			if iState == 0:
-				print('INFO: Network disconnected')
-				GUICtrlSetColor(self.hLabelNetworkIcon, '#fc7c7c')
-				GUICtrlSetColor(self.hLabelNetworkStatus, '#fc7c7c')
-				self.hLabelNetworkStatus.setText("Disconnected")
-				self.hLabelNetworkIcon.setPixmap(self.hLogoRed)
-			elif iState == 1:
-				GUICtrlSetColor(self.hLabelNetworkIcon, '#f7ff91')
-				GUICtrlSetColor(self.hLabelNetworkStatus, '#f7ff91')
-				self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % iPercent + "%)")
-				self.hLabelNetworkIcon.setPixmap(self.hLogoYellow)
-			elif iState == 2:
-				print('INFO: Network synced')
-				GUICtrlSetColor(self.hLabelNetworkIcon, 'rgb(26, 188, 156)')
-				GUICtrlSetColor(self.hLabelNetworkStatus, 'rgb(26, 188, 156)')
-				self.hLabelNetworkStatus.setText("Synced")
-				self.hLabelNetworkIcon.setPixmap(self.hLogoGreen)
-		elif iState == 1:
-			print('INFO: Network syncing' + '(' + '%.2f' % iPercent + '%)')
-			self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % iPercent + "%)")
+			self.iPercent = iPercent
+			self.netChanged = True
+		elif self.XiNetworkState == 1:
+			self.iPercent = iPercent
+			self.netChanged = True
+		else:
+			self.netChanged = False
+		self.hXiProc.click()
 	
 	def button_proc(self):
 		obj = self.sender()
@@ -758,7 +763,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hLabelPassSet.hide()
 		self.hInputPass.hide()
 		self.hButtonPassSet.hide()
-		run('xi-pgservice.exe -g -w "' + config['wallet']['path'] +'" --network Galaxia.MainNet -p "' + self.pwd + '"', creationflags = CREATE_NO_WINDOW)
+		run('xi-pgservice.exe -g -w "' + config['wallet']['path'] +'" --network Galaxia.MainNet -p "' + self.pwd + '"', creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
 		with open("Wallet.ini", "w") as configfile:
 			config.write(configfile)
 		self.InitWallet()
@@ -838,6 +843,9 @@ If you enjoy the program you can support me by donating some GLX using button be
 		nodeInfo = self.GetNodeInfo()
 		self.nodeSync = nodeInfo['result']['chain']['top_height']
 		self.networkSync = nodeInfo['result']['p2p']['height']
+		walletInfo = GetWalletBalance()
+		self.walletBalance = walletInfo['result']['available_balance'] / 1000000
+		self.walletBalanceLocked = walletInfo['result']['locked_amount'] / 1000000
 		if self.networkSync and self.networkSync > 1:
 			if self.nodeSync < self.networkSync:
 				self.XiNetworkSetState(1, self.nodeSync / self.networkSync * 100)
@@ -845,51 +853,60 @@ If you enjoy the program you can support me by donating some GLX using button be
 				self.XiNetworkSetState(2)
 		else:
 			self.XiNetworkSetState(0)
-		walletInfo = GetWalletBalance()
-		self.walletBalance = walletInfo['result']['available_balance'] / 1000000
-		self.walletBalanceLocked = walletInfo['result']['locked_amount'] / 1000000
-		self.UpdateBalance()
-		self.UpdateTransactions()
-		threading.Timer(0.25, self.hXiProc.click).start()
+		self.timer = threading.Timer(1, self.XiNetworkUpdate)
+		self.timer.start()
 		
 	def XiNetUpdateProc(self):
-		self.XiNetworkUpdate()
+		if self.netChanged:
+			if self.XiNetworkState == 0:
+				print('INFO: Network disconnected')
+				GUICtrlSetColor(self.hLabelNetworkIcon, '#fc7c7c')
+				GUICtrlSetColor(self.hLabelNetworkStatus, '#fc7c7c')
+				self.hLabelNetworkStatus.setText("Disconnected")
+				self.hLabelNetworkIcon.setPixmap(self.hLogoRed)
+			elif self.XiNetworkState == 1:
+				GUICtrlSetColor(self.hLabelNetworkIcon, '#f7ff91')
+				GUICtrlSetColor(self.hLabelNetworkStatus, '#f7ff91')
+				self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % self.iPercent + "%)")
+				self.hLabelNetworkIcon.setPixmap(self.hLogoYellow)
+			elif self.XiNetworkState == 2:
+				print('INFO: Network synced')
+				GUICtrlSetColor(self.hLabelNetworkIcon, 'rgb(26, 188, 156)')
+				GUICtrlSetColor(self.hLabelNetworkStatus, 'rgb(26, 188, 156)')
+				self.hLabelNetworkStatus.setText("Synced")
+				self.hLabelNetworkIcon.setPixmap(self.hLogoGreen)
+		self.UpdateBalance()
+		self.UpdateTransactions()
 	
 	def InitDaemon(self):
 		if not '--offline' in app.arguments():
-			if not ProcessExists("xi-daemon"):
-				self.hShow.click()
-				self.hButtonCreate.hide()
-				self.hButtonOpen.hide()
-				self.hLabelTip.hide()
-				self.hLabelInit.show()
-				print('INFO: Starting xi-daemon')
-				self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NO_WINDOW)
-				while 1:
-					nodeInfo = self.GetNodeInfo()
-					nodeSync = nodeInfo['result']['p2p']['height']
-					if nodeSync: break
-					sleep(0.1)
-				if pathlib.Path(config['wallet']['path']).is_file():
-					print('INFO: Wallet file found')
-					self.InitWallet()
-				else:
-					sleep(1)
-					print('ERROR: Wallet file not found')
-					self.hButtonCreate.show()
-					self.hButtonOpen.show()
-					self.hLabelTip.show()
-					self.hLabelInit.hide()
-					if int(config['wallet']['autohide']):
-						self.tray_icon.showMessage('Wallet hidden to tray', msecs=3000)
-					else:
-						self.hShow.click()
+			if ProcessExists("xi-daemon"):
+				ProcessClose("xi-daemon")
+			self.hShow.click()
+			self.hButtonCreate.hide()
+			self.hButtonOpen.hide()
+			self.hLabelTip.hide()
+			self.hLabelInit.show()
+			print('INFO: Starting xi-daemon')
+			self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
+			while 1:
+				nodeInfo = self.GetNodeInfo()
+				nodeSync = nodeInfo['result']['p2p']['height']
+				if nodeSync: break
+				sleep(0.1)
+			if pathlib.Path(config['wallet']['path']).is_file():
+				print('INFO: Wallet file found')
+				self.InitWallet()
 			else:
-				self.hLabelInitErr.show()
-				self.hShow.click()
-				self.hButtonCreate.hide()
-				self.hButtonOpen.hide()
-				self.hLabelTip.hide()
+				print('ERROR: Wallet file not found')
+				self.hButtonCreate.show()
+				self.hButtonOpen.show()
+				self.hLabelTip.show()
+				self.hLabelInit.hide()
+				if int(config['wallet']['autohide']):
+					self.tray_icon.showMessage('Wallet hidden to tray', msecs=3000)
+				else:
+					self.hShow.click()
 		else:
 			print('INFO: Running wallet in offline mode')
 			self.hOffline.click()
@@ -901,27 +918,25 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hButtonOpen.hide()
 		self.hLabelTip.hide()
 		if not '--offline' in app.arguments():
-			if not ProcessExists("xi-pgservice"):
-				if self.pwd:
-					print('INFO: Starting xi-pgservice (New wallet generated)')
-				else:
-					print('INFO: Starting xi-pgservice (Password protected check)')
-				self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '"', stdout=PIPE, creationflags = CREATE_NO_WINDOW)
-				threading.Timer(2.5, self.PgInitialized).start()
-				while self.pgservice.poll() is None:
-					if self.pg_initialized: 
-						return
-					sleep(0.1)
-				stdout = str(self.pgservice.communicate()[0])
-				if 'password is wrong' in stdout:
-					print('ERROR: Wallet have password')
-					self.hRequirePassword.click()
-				else:
-					print("That shouldn't happen!!!")
-					self.close()
+			if ProcessExists("xi-pgservice"):
+				ProcessClose("xi-pgservice")
+			if self.pwd:
+				print('INFO: Starting xi-pgservice (New wallet generated)')
 			else:
-				self.hLabelInitErr.setText('Failed to start wallet service')
-				self.hLabelInitErr.show()
+				print('INFO: Starting xi-pgservice (Password protected check)')
+			self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '" --log-level 5')#, stdout=PIPE)#, creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
+			threading.Timer(2.5, self.PgInitialized).start()
+			while self.pgservice.poll() is None:
+				if self.pg_initialized: 
+					return
+				sleep(0.1)
+			stdout = str(self.pgservice.communicate()[0])
+			if 'password is wrong' in stdout:
+				print('ERROR: Wallet have password')
+				self.hRequirePassword.click()
+			else:
+				print("That shouldn't happen!!!")
+				self.close()
 		else:
 			self.hOffline.click()
 				
@@ -947,7 +962,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hInputPass.setText('')
 		print('INFO: Starting xi-pgservice (Try with password)')
 		self.pg_initialized = False
-		self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + pwd + '"', creationflags = CREATE_NO_WINDOW, stdout=PIPE)
+		self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + pwd + '"', creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW, stdout=PIPE)
 		threading.Timer(2.5, self.PgInitialized).start()
 		while self.pgservice.poll() is None:
 			if self.pg_initialized: 
@@ -1005,8 +1020,8 @@ If you enjoy the program you can support me by donating some GLX using button be
 		#Show window and tray icon
 		if not (int(config['wallet']['autohide']) and '--autostart' in app.arguments()):
 			self.showWindow()
-		self.XiNetworkUpdate()
-		self.UpdateTransactions()
+		self.timer = threading.Timer(1, self.XiNetworkUpdate)
+		self.timer.start()
 		self.notifications = True 
 		threading.Timer(0, self.notificationThread).start()
 	
@@ -1014,14 +1029,15 @@ If you enjoy the program you can support me by donating some GLX using button be
 		transactions = []
 		fullScan = False
 		#Update transaction table
-		if self.networkSync and self.networkSync > 1 and self.lastScan != self.networkSync:
+		if self.networkSync and self.networkSync > 1 and self.lastScan != self.networkSync and not self.scanning:
+			self.scanning = True
 			if self.lastScan < 2:
-				print('Full tx request')
+				print('INFO: Full tx list request')
 				fullScan = True
 				transactions = GetWalletTransactions(1, self.networkSync)
 				self.lastScan = self.networkSync
 			elif self.networkSync - self.lastScan > 0:
-				print('Partial tx request, blocks from', self.lastScan, ' to ', self.networkSync)
+				print('INFO: Partial tx list request, blocks from', self.lastScan, ' to ', self.networkSync)
 				transactions =  GetWalletTransactions(self.lastScan, self.networkSync - self.lastScan) 
 				self.lastScan = self.networkSync
 			#Get transactions hashes list
@@ -1038,7 +1054,12 @@ If you enjoy the program you can support me by donating some GLX using button be
 				if not fullScan:
 					print('New transaction found! Amount:' + str(amount) + ' (' + transaction + ')')
 					self.IncomingTx(transaction, str(amount), str(date))
-			self.hTableTransactions.sortItems(0, Qt.DescendingOrder)
+			if len(transactions):
+				print('INFO: ', len(transactions), 'transactions added to table')
+				self.hTableTransactions.sortItems(0, Qt.DescendingOrder)
+			else:
+				print('INFO: No new transactions found')
+			self.scanning = False
 	
 	def IncomingTx(self, hash, amount, time):
 		self.notQueue.put([time, hash, amount])
