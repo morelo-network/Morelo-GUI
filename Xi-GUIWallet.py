@@ -225,7 +225,6 @@ def find_str(s, char):
 
 def SendTransaction(receiver, amount, pay_id):
 	response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"jsonrpc":"2.0","method":"sendTransaction","password":"","params":{"transfers":[{"address":"' + receiver + '","amount":' + str(int(amount * 1000000)) + '}],"fee":10000}}', headers={'Content-Type':'application/json'})
-	print(int(amount * 1000000))
 	return json.loads(response.text)
    
 def GetWalletBalance():
@@ -279,6 +278,8 @@ class App(QWidget):
 		self.running = True
 		self.pwd = ''
 		self.scanning = False
+		self.netSelect = False
+		self.netChanged = False
 		print('INFO: Window config initialized')
 		self.initUI()
 		
@@ -391,6 +392,13 @@ class App(QWidget):
 		
 		#Send TAB
 		self.hInputAmount = self.GUICtrlCreateInput('', 215, 30, 250, 30, 'rgba(255, 0, 0, 15%)')
+		validator = QDoubleValidator()
+		validator.setBottom(0.000001)
+		validator.setDecimals(6)
+		locale = QLocale('Enblish')
+		locale.setNumberOptions(QLocale.RejectGroupSeparator);
+		validator.setLocale(locale)
+		self.hInputAmount.setValidator(validator)
 		self.hInputAddress = self.GUICtrlCreateInput('', 215, 80, 250, 30, 'rgba(255, 0, 0, 15%)')
 		self.hInputPaymentID = self.GUICtrlCreateInput('', 215, 130, 125, 30)
 		
@@ -447,13 +455,39 @@ class App(QWidget):
 		self.hCheckboxNotsText = self.GUICtrlCreateLabel('Disable notifications', 245, 110, 0, 0, 0, 0, '13px')
 		
 		self.hLabelNode = self.GUICtrlCreateLabel('Network connection', 215, 155, 0, 0, 0, 0, '13px')
-		self.hComboNode = QComboBox(self)
-		for item in ['Local node', 'Public node #1', 'Public node #2', 'Own address']:
-			self.hComboNode.addItem(item)
+		self.hLabelSelInfo = self.GUICtrlCreateLabel('Changes requiring restart', 215, 205, 130, 20, 0, '#b53b3b')
+		self.hLabelSelInfo.hide()
+		
+		self.hLabelSelection = self.GUICtrlCreateInput('', 215, 175, 150, 30)
+		self.hLabelSelection.setReadOnly(True)
+
+		self.hButtonSelect = self.GUICtrlCreateButton('▼', 365, 175, 30, 30)
+		
+		self.hButtonSelectLocal = self.GUICtrlCreateButton('Run local node', 215, 205, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectLocal.hide()
+		self.hButtonSelectPublic1 = self.GUICtrlCreateButton('Use public node #1', 215, 235, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectPublic1.hide()
+		self.hButtonSelectPublic2 = self.GUICtrlCreateButton('Use public node #2', 215, 265, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectPublic2.hide()
+		self.hButtonSelectManual = self.GUICtrlCreateButton('Use custom node', 215, 295, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectManual.hide()
+		
+		self.hLabelUrl = self.GUICtrlCreateLabel('Custom node address', 450, 160)
+		self.hLabelUrl.hide()
+		self.hInputUrl = self.GUICtrlCreateInput('http://', 450, 175, 180, 30)
+		self.hInputUrl.hide()
+		
+		self.hLabelUrlPort = self.GUICtrlCreateLabel('Custom node port', 450, 210)
+		self.hLabelUrlPort.hide()
+		self.hInputUrlPort = self.GUICtrlCreateInput('', 450, 225, 75, 30)
+		self.hInputUrlPort.setValidator(QIntValidator(1, 65535))
+		self.hInputUrlPort.hide()
+		
 		
 		self.tabsControls[self.hButtonSettings.objectName()] = [self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
 		self.hCheckboxStartup, self.hCheckboxStartupBk, self.hCheckboxText, self.hCheckboxTrayClose, 
-		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText, self.hLabelNode]
+		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText, self.hLabelNode, 
+		self.hLabelSelection, self.hButtonSelect]
 		
 		#Transactions TAB
 		self.hTableTransactions = QTableWidget(0, 3, self)
@@ -490,6 +524,18 @@ If you enjoy the program you can support me by donating some GLX using button be
 			ctrl.hide()
 		for ctrl in self.tabsControls[self.hButtonHistory.objectName()]:
 			ctrl.hide()
+			
+		if config['wallet']['connection'] == 'local':
+			self.hLabelSelection.setText('Run local node')
+		elif config['wallet']['connection'] == 'ext1':
+			self.hLabelSelection.setText('Use public node #1')
+		elif config['wallet']['connection'] == 'ext2':
+			self.hLabelSelection.setText('Use public node #2')
+		elif config['wallet']['connection'] == 'custom':
+			self.hLabelSelection.setText('Use custom node')
+		url = config['wallet']['url'].split(':')
+		self.hInputUrl.setText(url[0] + ':' + url[1])
+		self.hInputUrlPort.setText(url[2])
 		
 		# Create the menu
 		self.tray_menu = QMenu()
@@ -520,7 +566,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 	def GetNodeInfo(self):
 		while 1:
 			try:
-				response = requests.post('http://127.0.0.1:22869/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+				response = requests.post(config['wallet']['url'] + '/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 				break
 			except:
 				sleep(0.1)
@@ -658,9 +704,30 @@ If you enjoy the program you can support me by donating some GLX using button be
 	
 	def button_proc(self):
 		obj = self.sender()
+		if self.netSelect and obj != self.hButtonSelect:
+			for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
+				item.hide()
+			GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 10%)')
+			GUICtrlSetColor(self.hButtonSelect, 'rgb(26, 188, 156)')
+			self.hButtonSelect.setText('▼')
+			self.netSelect = False
+			if self.netChanged:
+				self.hLabelSelInfo.show()
 		if obj != self.activeTab:
 			#Switching TABS
 			if obj in self.navButtons:
+				if self.netChanged:
+					if obj == self.hButtonSettings:
+						self.hLabelSelInfo.show()
+					else:
+						self.hLabelSelInfo.hide()
+				if config['wallet']['connection'] == 'custom':
+					if obj == self.hButtonSettings:
+						for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
+								ctrl.show()
+					else:
+						for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
+								ctrl.hide()
 				GUICtrlSetBkColor(self.activeTab, 'rgba(255, 255, 255, 10%)')
 				GUICtrlSetColor(self.activeTab, 'rgb(26, 188, 156)')
 				for ctrl in self.tabsControls[self.activeTab.objectName()]:
@@ -671,7 +738,49 @@ If you enjoy the program you can support me by donating some GLX using button be
 					ctrl.show()
 				self.activeTab = obj
 			else:
-				if obj == self.hOffline:
+				if obj in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
+					lastSetting = config['wallet']['connection']
+					if obj == self.hButtonSelectLocal:
+						config['wallet']['connection'] = 'local'
+						self.hLabelSelection.setText('Run local node')
+						config['wallet']['url'] = '127.0.0.1:22869'
+					elif obj == self.hButtonSelectPublic1:
+						config['wallet']['connection'] = 'ext1'
+						self.hLabelSelection.setText('Use public node #1')
+					elif obj == self.hButtonSelectPublic2:
+						config['wallet']['connection'] = 'ext2'
+						self.hLabelSelection.setText('Use public node #2')
+					elif obj == self.hButtonSelectManual:
+						config['wallet']['connection'] = 'custom'
+						self.hLabelSelection.setText('Use custom node')
+					if lastSetting != config['wallet']['connection']:
+						if config['wallet']['connection'] == 'custom':
+							for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
+								ctrl.show()
+						else:
+							for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
+								ctrl.hide()
+						self.hLabelSelInfo.show()
+						self.netChanged = True
+						with open("Wallet.ini", "w") as configfile:
+							config.write(configfile)
+				if obj == self.hButtonSelect:
+					if self.netSelect:
+						for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
+							item.hide()
+						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 10%)')
+						GUICtrlSetColor(self.hButtonSelect, 'rgb(26, 188, 156)')
+						self.netSelect = False
+						self.hButtonSelect.setText('▼')
+					else:
+						for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
+							item.show()
+						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(26, 188, 156, 50%)')
+						GUICtrlSetColor(self.hButtonSelect, 'white')
+						self.netSelect = True
+						self.hButtonSelect.setText('▲')
+						self.hLabelSelInfo.hide()
+				elif obj == self.hOffline:
 					self.runOffline()
 				elif obj == self.hButtonPass:
 					threading.Timer(0, self.PasswordCheck).start()
@@ -733,7 +842,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 				#Send founds button
 				elif obj== self.hButtonSendSend:
 					sending = True
-					if not self.valid_amount or not self.valid_address:
+					if not self.hLabelAmount.hasAcceptableInput() or not self.valid_address:
 						self.controlBlink(3, 0.15)
 						sending = False
 					if sending:
@@ -773,24 +882,23 @@ If you enjoy the program you can support me by donating some GLX using button be
 		if obj == self.hInputAmount:
 			dot = find_str(obj.text(), '.')
 			if obj.text() != '' and ValidAmount(obj.text()) and float(obj.text()) > 0 and not (dot >= 0 and len(obj.text()) > 7 + dot): obj.setText('%.6f' % float(obj.text()))
+		elif obj == self.hInputUrl or obj == self.hInputUrlPort:
+			config['wallet']['url'] = self.hInputUrl.text() + ':' + self.hInputUrlPort.text()
+			with open("Wallet.ini", "w") as configfile:
+				config.write(configfile)
 	
 	def input_proc(self):
 		obj = self.sender()
 		if obj == self.hInputAmount:
-			self.valid_amount = False
-			dot = find_str(obj.text(), '.')
-			if dot >= 0 and len(obj.text()) > 7 + dot:
-				self.hLabelAmountErr.setText('Invalid amount')
-			elif not ValidAmount(obj.text()):
-				self.hLabelAmountErr.setText('Invalid amount')
-			elif obj.text() == '' or float(obj.text()) == 0 :
+			if obj.text() == '' or float(obj.text()) == 0 :
 				self.hLabelAmountErr.setText('Please enter amount')
 			elif float(obj.text()) + 0.01 > self.walletBalance:
 				self.hLabelAmountErr.setText('Not enought founds')
+			elif not obj.hasAcceptableInput():
+				self.hLabelAmountErr.setText('Invalid amount')
 			else:
 				self.hLabelAmountErr.setText('')
-				self.valid_amount = True
-			if self.valid_amount:
+			if obj.hasAcceptableInput() and float(obj.text()) + 0.01 <= self.walletBalance:
 				GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 255, 255, 10%)')
 			else:
 				GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 0, 0, 15%)')
@@ -810,6 +918,9 @@ If you enjoy the program you can support me by donating some GLX using button be
 				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 255, 255, 10%)')
 			else:
 				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 0, 0, 15%)')
+		elif obj == self.hInputUrl:
+			if obj.text() == '' or obj.text()[0:7] != 'http://':
+				obj.setText('http://')
 		return
 		
 	def checkbox_proc(self):
@@ -831,11 +942,11 @@ If you enjoy the program you can support me by donating some GLX using button be
 		
 	def blinkProc(self, times, delay):
 		for i in range(times):
-			if not self.valid_amount: self.hLabelAmountErr.hide()
+			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAmountErr.hide()
 			if not self.valid_address: self.hLabelAddressErr.hide()
 			sleep(delay)
 			if self.activeTab != self.hButtonSend: break
-			if not self.valid_amount: self.hLabelAmountErr.show()
+			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAmountErr.show()
 			if not self.valid_address: self.hLabelAddressErr.show()
 			sleep(delay)
 	
@@ -1129,7 +1240,7 @@ if __name__ == '__main__':
 		print('INFO: No wallet config, generate new config file')
 		newwallet = True
 		with open("Wallet.ini", "w") as configfile:
-			config['wallet'] = {'path' : '', 'trayclose' : 0, 'autostart' : 0, 'autohide' : 0, 'disablenotifications' : 0}
+			config['wallet'] = {'path' : '', 'url' : '127.0.0.1:', 'connection' : 'local', 'trayclose' : 0, 'autostart' : 0, 'autohide' : 0, 'disablenotifications' : 0}
 			config.write(configfile)
 			print('INFO: Config saved')
 	config.read("Wallet.ini")
