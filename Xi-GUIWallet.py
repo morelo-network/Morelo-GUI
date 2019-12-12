@@ -564,14 +564,14 @@ If you enjoy the program you can support me by donating some GLX using button be
 		threading.Timer(0.5 if not '--offline' in app.arguments() else 0.0, self.InitDaemon).start()
 	
 	def GetNodeInfo(self):
-		while 1:
-			try:
-				response = requests.post(config['wallet']['url'] + '/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
-				break
-			except:
-				sleep(0.1)
-			if not self.running: return
-		return json.loads(response.text)
+		response = False
+		try:
+			response = requests.post(config['wallet']['url'] + '/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+		except:
+			pass
+		if response:
+			response.json = json.loads(response.text)
+		return response
 	
 	def notificationThread(self):
 		while self.notifications:
@@ -990,6 +990,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.UpdateTransactions()
 	
 	def InitDaemon(self):
+		daemon = False
 		if not '--offline' in app.arguments():
 			if ProcessExists("xi-daemon"):
 				ProcessClose("xi-daemon")
@@ -1000,24 +1001,27 @@ If you enjoy the program you can support me by donating some GLX using button be
 			self.hLabelInit.show()
 			print('INFO: Starting xi-daemon')
 			self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
-			while 1:
+			for retry in range(5):
+				sleep(1000)
 				nodeInfo = self.GetNodeInfo()
-				nodeSync = nodeInfo['result']['p2p']['height']
-				if nodeSync: break
-				sleep(0.1)
-			if pathlib.Path(config['wallet']['path']).is_file():
-				print('INFO: Wallet file found')
-				self.InitWallet()
-			else:
-				print('ERROR: Wallet file not found')
-				self.hButtonCreate.show()
-				self.hButtonOpen.show()
-				self.hLabelTip.show()
-				self.hLabelInit.hide()
-				if int(config['wallet']['autohide']):
-					self.tray_icon.showMessage('Wallet hidden to tray', msecs=3000)
+				if nodeInfo and 'result' in nodeInfo.json:
+					nodeSync = nodeInfo['result']['p2p']['height']
+					daemon_connected = True
+					break
+			if daemon:
+				if pathlib.Path(config['wallet']['path']).is_file():
+					print('INFO: Wallet file found')
+					self.InitWallet()
 				else:
-					self.hShow.click()
+					print('ERROR: Wallet file not found')
+					self.hButtonCreate.show()
+					self.hButtonOpen.show()
+					self.hLabelTip.show()
+					self.hLabelInit.hide()
+					if int(config['wallet']['autohide']):
+						self.tray_icon.showMessage('Wallet hidden to tray', msecs=3000)
+					else:
+						self.hShow.click()
 		else:
 			print('INFO: Running wallet in offline mode')
 			self.hOffline.click()
