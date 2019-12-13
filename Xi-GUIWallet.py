@@ -952,8 +952,8 @@ If you enjoy the program you can support me by donating some GLX using button be
 	
 	def XiNetworkUpdate(self):
 		nodeInfo = self.GetNodeInfo()
-		self.nodeSync = nodeInfo['result']['chain']['top_height']
-		self.networkSync = nodeInfo['result']['p2p']['height']
+		self.nodeSync = nodeInfo.json['result']['chain']['top_height']
+		self.networkSync = nodeInfo.json['result']['p2p']['height']
 		walletInfo = GetWalletBalance()
 		self.walletBalance = walletInfo['result']['available_balance'] / 1000000
 		self.walletBalanceLocked = walletInfo['result']['locked_amount'] / 1000000
@@ -1002,11 +1002,10 @@ If you enjoy the program you can support me by donating some GLX using button be
 			print('INFO: Starting xi-daemon')
 			self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
 			for retry in range(5):
-				sleep(1000)
+				sleep(1)
 				nodeInfo = self.GetNodeInfo()
 				if nodeInfo and 'result' in nodeInfo.json:
-					nodeSync = nodeInfo['result']['p2p']['height']
-					daemon_connected = True
+					daemon = True
 					break
 			if daemon:
 				if pathlib.Path(config['wallet']['path']).is_file():
@@ -1022,6 +1021,8 @@ If you enjoy the program you can support me by donating some GLX using button be
 						self.tray_icon.showMessage('Wallet hidden to tray', msecs=3000)
 					else:
 						self.hShow.click()
+			else:
+				print('ERROR: Cannot connect to daemon')
 		else:
 			print('INFO: Running wallet in offline mode')
 			self.hOffline.click()
