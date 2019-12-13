@@ -6,6 +6,12 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install io')
 	missingLibs = True
 try:
+	import time
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install time')
+	missingLibs = True
+try:
 	import datetime
 except:
 	pass
@@ -124,6 +130,12 @@ try:
 except:
 	noQR = True
 	print('INFO: QRCode module not found, running without it')
+
+def TimerInit():
+	return int(round(time.time() * 1000))
+	
+def TimerDiff(hTimer):
+	return int(round(time.time() * 1000)) - hTimer
 
 def randomString(stringLength=10):
 	letters = string.ascii_lowercase
@@ -280,6 +292,7 @@ class App(QWidget):
 		self.scanning = False
 		self.netSelect = False
 		self.netChanged = False
+		self.pipe = 0
 		print('INFO: Window config initialized')
 		self.initUI()
 		
@@ -302,7 +315,7 @@ class App(QWidget):
 			event.accept()
 	
 	def initUI(self):
-		print('INFO: Generating window control')
+		print('INFO: Generating window controls')
 		self.setWindowTitle(self.title)
 		self.setFixedSize(self.width, self.height)
 		self.tabsControls = {}
@@ -311,6 +324,7 @@ class App(QWidget):
 		self.hReady = self.GUICtrlCreateButton('', 0, 0)
 		self.hRequirePassword = self.GUICtrlCreateButton('', 0, 0)
 		self.hShow = self.GUICtrlCreateButton('', 0, 0)
+		self.hHide= self.GUICtrlCreateButton('', 0, 0)
 		self.hOffline = self.GUICtrlCreateButton('', 0, 0)
 		self.hWalletInit = self.GUICtrlCreateButton('', 0, 0)
 		self.hXiProc = self.GUICtrlCreateButton('', 0, 0)
@@ -326,6 +340,7 @@ class App(QWidget):
 		self.hLabelCopyrights = self.GUICtrlCreateLabel('All rights reserved © 2019 MrKris7100', 550, 450, 0, 0, 0, 0, '12px')
 		self.hLabelTip = self.GUICtrlCreateLabel('What you want to do?', 250, 320, 300, 0, 0, 0, '14px')
 		self.hLabelTip.setAlignment(Qt.AlignCenter)
+		self.hLabelTip.hide()
 		self.hLabelInitErr = self.GUICtrlCreateLabel('Failed to start daemon', 250, 300, 300, 0, 0, '#b53b3b', '14px')
 		self.hLabelInitErr.setAlignment(Qt.AlignCenter)
 		
@@ -347,11 +362,13 @@ class App(QWidget):
 		GUICtrlSetBkColor(self.hButtonCreate, "url('./assets/wallet_new.png')")
 		GUICtrlSetHoverBkColor(self.hButtonCreate, "url('./assets/wallet_new_hover.png')")
 		self.hButtonCreate.installEventFilter(self)
+		self.hButtonCreate.hide()
 		
 		self.hButtonOpen = self.GUICtrlCreateButton('', 450, 200, 100, 100)
 		GUICtrlSetBkColor(self.hButtonOpen, "url('./assets/wallet_open.png')")
 		GUICtrlSetHoverBkColor(self.hButtonOpen, "url('./assets/wallet_open_hover.png')")
 		self.hButtonOpen.installEventFilter(self)
+		self.hButtonOpen.hide()
 		
 		'''
 		Left Panel controls
@@ -561,17 +578,31 @@ If you enjoy the program you can support me by donating some GLX using button be
 			ctrl.hide()
 		self.tray_icon.show()
 		#Wallet initialization
-		threading.Timer(0.5 if not '--offline' in app.arguments() else 0.0, self.InitDaemon).start()
+		if int(config['wallet']['autohide']):
+			print('INFO: Hiding window to tray')
+			self.tray_icon.showMessage('Info', 'Wallet hidden to tray', msecs=3000)
+		else:
+			self.show()
+		threading.Timer(0, self.NetworkThread).start()
 	
 	def GetNodeInfo(self):
 		response = False
 		try:
-			response = requests.post(config['wallet']['url'] + '/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+			response = requests.post(wallet_url + '/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 		except:
 			pass
 		if response:
 			response.json = json.loads(response.text)
 		return response
+		
+	def WaitForDaemon(self):
+		timeout = TimerInit()
+		while TimerDiff(timeout) < 5000:
+			nodeInfo = self.GetNodeInfo()
+			if nodeInfo and 'result' in nodeInfo.json:
+				return True
+			sleep(0.1)
+		return False
 	
 	def notificationThread(self):
 		while self.notifications:
@@ -585,13 +616,14 @@ If you enjoy the program you can support me by donating some GLX using button be
 	
 	def eventFilter(self, obj, event):
 		type = event.type()
-		if type == 129:
-			if obj == self.hButtonCreate:
-				self.hLabelTip.setText('Create new wallet')
-			elif obj == self.hButtonOpen:
-				self.hLabelTip.setText('Open existing wallet')
-		if type == 128 and (obj == self.hButtonCreate or obj == self.hButtonOpen):
-			self.hLabelTip.setText('What you want to do?')
+		if obj.isEnabled():
+			if type == 129:
+				if obj == self.hButtonCreate:
+					self.hLabelTip.setText('Create new wallet')
+				elif obj == self.hButtonOpen:
+					self.hLabelTip.setText('Open existing wallet')
+			if type == 128 and (obj == self.hButtonCreate or obj == self.hButtonOpen):
+				self.hLabelTip.setText('What you want to do?')
 		return 0
 	
 	def tray_exit_proc(self):
@@ -743,12 +775,14 @@ If you enjoy the program you can support me by donating some GLX using button be
 					if obj == self.hButtonSelectLocal:
 						config['wallet']['connection'] = 'local'
 						self.hLabelSelection.setText('Run local node')
-						config['wallet']['url'] = '127.0.0.1:22869'
+						config['wallet']['url'] = 'http://127.0.0.1:22869'
 					elif obj == self.hButtonSelectPublic1:
 						config['wallet']['connection'] = 'ext1'
+						config['wallet']['url'] = 'http://5.172.219.176:22869'
 						self.hLabelSelection.setText('Use public node #1')
 					elif obj == self.hButtonSelectPublic2:
 						config['wallet']['connection'] = 'ext2'
+						config['wallet']['url'] = 'http://5.172.219.176:22869'
 						self.hLabelSelection.setText('Use public node #2')
 					elif obj == self.hButtonSelectManual:
 						config['wallet']['connection'] = 'custom'
@@ -786,13 +820,15 @@ If you enjoy the program you can support me by donating some GLX using button be
 					threading.Timer(0, self.PasswordCheck).start()
 				elif obj == self.hButtonPassSet:
 					self.pwd = self.hInputPass.text()
-					self.hWalletNew.click()
+					self.pipe = 'newwallet'
 				elif obj == self.hXiProc:
 					self.XiNetUpdateProc()
 				elif obj == self.hRequirePassword:
 					self.PasswordPrompt()
 				elif obj == self.hShow:
 					self.showWindow()
+				elif obj == self.hHide:
+					self.hideWindow()
 				#Donate button
 				elif obj == self.hButtonDonate:
 					self.hInputAddress.setText(donate_address)
@@ -802,6 +838,8 @@ If you enjoy the program you can support me by donating some GLX using button be
 					self.WalletStart()
 				#Wallet open button
 				elif obj == self.hButtonOpen:
+					self.hButtonCreate.setEnabled(False)
+					self.hButtonOpen.setEnabled(False)
 					tkroot = Tk()
 					tkroot.withdraw()
 					file_path = filedialog.askopenfilename(title='Select wallet file', filetypes=[('Wallet containers', '*.wallet')])
@@ -814,7 +852,10 @@ If you enjoy the program you can support me by donating some GLX using button be
 						self.hButtonCreate.hide()
 						self.hButtonOpen.hide()
 						self.hLabelTip.hide()
-						self.hWalletInit.click()
+						self.pipe = 'pgservice'
+					else:
+						self.hButtonCreate.setEnabled(True)
+						self.hButtonOpen.setEnabled(True)
 				elif obj == self.hWalletInit:
 					self.InitWallet()
 				elif obj == self.hWalletNew:
@@ -862,20 +903,6 @@ If you enjoy the program you can support me by donating some GLX using button be
 	
 	def AddressFromClip(self):
 		self.hInputAddress.setText(pyperclip.paste())
-	
-	def NewWallet(self):
-		self.hLabelInit.show()
-		#Generate new wallet
-		self.hButtonCreate.hide()
-		self.hButtonOpen.hide()
-		self.hLabelTip.hide()
-		self.hLabelPassSet.hide()
-		self.hInputPass.hide()
-		self.hButtonPassSet.hide()
-		run('xi-pgservice.exe -g -w "' + config['wallet']['path'] +'" --network Galaxia.MainNet -p "' + self.pwd + '"', creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
-		with open("Wallet.ini", "w") as configfile:
-			config.write(configfile)
-		self.InitWallet()
 	
 	def input_proc_end(self):
 		obj = self.sender()
@@ -952,8 +979,8 @@ If you enjoy the program you can support me by donating some GLX using button be
 	
 	def XiNetworkUpdate(self):
 		nodeInfo = self.GetNodeInfo()
-		self.nodeSync = nodeInfo.json['result']['chain']['top_height']
-		self.networkSync = nodeInfo.json['result']['p2p']['height']
+		self.nodeSync = nodeInfo['result']['chain']['top_height']
+		self.networkSync = nodeInfo['result']['p2p']['height']
 		walletInfo = GetWalletBalance()
 		self.walletBalance = walletInfo['result']['available_balance'] / 1000000
 		self.walletBalanceLocked = walletInfo['result']['locked_amount'] / 1000000
@@ -989,43 +1016,59 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.UpdateBalance()
 		self.UpdateTransactions()
 	
-	def InitDaemon(self):
-		daemon = False
-		if not '--offline' in app.arguments():
-			if ProcessExists("xi-daemon"):
-				ProcessClose("xi-daemon")
-			self.hShow.click()
-			self.hButtonCreate.hide()
-			self.hButtonOpen.hide()
-			self.hLabelTip.hide()
-			self.hLabelInit.show()
-			print('INFO: Starting xi-daemon')
-			self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
-			for retry in range(5):
-				sleep(1)
-				nodeInfo = self.GetNodeInfo()
-				if nodeInfo and 'result' in nodeInfo.json:
+	def NetworkThread(self):
+		if '--offline' in app.arguments():
+			print('INFO: Running wallet in offline mode')
+			self.hOffline.click()
+		else:
+			daemon = False
+			#if ProcessExists("xi-daemon"):
+			#	ProcessClose("xi-daemon")
+			if config['wallet']['connection'] != 'local':
+				print('INFO: Connecting to', config['wallet']['url'] + '...')
+				if not self.WaitForDaemon():
 					daemon = True
-					break
-			if daemon:
-				if pathlib.Path(config['wallet']['path']).is_file():
-					print('INFO: Wallet file found')
-					self.InitWallet()
 				else:
+					print('ERROR: Unable connect to external node')
+					wallet_url = 'http://127.0.0.1:22869'
+			if not daemon:
+				print('INFO: Starting local node...')
+				#self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
+				if self.WaitForDaemon():
+					daemon = True
+				else:
+					print('ERROR: Unable connect to local node')
+			if not daemon:
+				print('ERROR: No connection to daemon, closing wallet...')
+				sleep(2.5)
+				self.close()
+			else:
+				if not pathlib.Path(config['wallet']['path']).is_file():
 					print('ERROR: Wallet file not found')
 					self.hButtonCreate.show()
 					self.hButtonOpen.show()
 					self.hLabelTip.show()
 					self.hLabelInit.hide()
-					if int(config['wallet']['autohide']):
-						self.tray_icon.showMessage('Wallet hidden to tray', msecs=3000)
-					else:
-						self.hShow.click()
-			else:
-				print('ERROR: Cannot connect to daemon')
-		else:
-			print('INFO: Running wallet in offline mode')
-			self.hOffline.click()
+				else:
+					print('INFO: Wallet file found')
+			while True:
+				if self.pipe == 'pgservice':
+					break
+				elif self.pipe == 'newwallet':
+					self.hLabelInit.show()
+					#Generate new wallet
+					self.hLabelPassSet.hide()
+					self.hInputPass.hide()
+					self.hButtonPassSet.hide()
+					run('xi-pgservice.exe -g -w "' + config['wallet']['path'] +'" --network Galaxia.MainNet -p "' + self.pwd + '"', creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
+					with open("Wallet.ini", "w") as configfile:
+						config.write(configfile)
+					break
+				else:
+					sleep(0.05)
+			#Pg service initializing
+			#if ProcessExists("xi-pgservice"):
+			#	ProcessClose("xi-pgservice")
 			
 	def InitWallet(self):
 		self.hLabelInit.show()
@@ -1034,8 +1077,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.hButtonOpen.hide()
 		self.hLabelTip.hide()
 		if not '--offline' in app.arguments():
-			if ProcessExists("xi-pgservice"):
-				ProcessClose("xi-pgservice")
+			
 			if self.pwd:
 				print('INFO: Starting xi-pgservice (New wallet generated)')
 			else:
@@ -1115,6 +1157,9 @@ If you enjoy the program you can support me by donating some GLX using button be
 
 	def showWindow(self):
 		self.show()
+	
+	def hideWindow(self):
+		self.hide()
 
 	def WalletStart(self):
 		print('INFO: Wallet started (Password is correct)')
@@ -1245,10 +1290,11 @@ if __name__ == '__main__':
 		print('INFO: No wallet config, generate new config file')
 		newwallet = True
 		with open("Wallet.ini", "w") as configfile:
-			config['wallet'] = {'path' : '', 'url' : '127.0.0.1:', 'connection' : 'local', 'trayclose' : 0, 'autostart' : 0, 'autohide' : 0, 'disablenotifications' : 0}
+			config['wallet'] = {'path' : '', 'url' : 'http://127.0.0.1:22869', 'connection' : 'local', 'trayclose' : 0, 'autostart' : 0, 'autohide' : 0, 'disablenotifications' : 0}
 			config.write(configfile)
 			print('INFO: Config saved')
 	config.read("Wallet.ini")
+	daemon_url = config['wallet']['url']
 	if not '--offline' in sys.argv:
 		pathPg = 'xi-pgservice.exe' if os.name == 'nt' else 'xi-pgservice'
 		pathDaemon = 'xi-daemon.exe' if os.name == 'nt' else 'xi-daemon'
