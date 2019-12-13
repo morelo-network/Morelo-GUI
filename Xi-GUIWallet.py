@@ -1069,34 +1069,49 @@ If you enjoy the program you can support me by donating some GLX using button be
 			#Pg service initializing
 			#if ProcessExists("xi-pgservice"):
 			#	ProcessClose("xi-pgservice")
-			
-	def InitWallet(self):
-		self.hLabelInit.show()
-		
-		self.hButtonCreate.hide()
-		self.hButtonOpen.hide()
-		self.hLabelTip.hide()
-		if not '--offline' in app.arguments():
-			
 			if self.pwd:
 				print('INFO: Starting xi-pgservice (New wallet generated)')
 			else:
 				print('INFO: Starting xi-pgservice (Password protected check)')
-			self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '" --log-level 5')#, stdout=PIPE)#, creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
-			threading.Timer(2.5, self.PgInitialized).start()
-			while self.pgservice.poll() is None:
-				if self.pg_initialized: 
-					return
-				sleep(0.1)
+			result = WaitForPg()
+			while True:
+				if result == 'ok':
+					break
+				elif result == 'requirepassword':
+					result = 'wait'
+					#SHOW password field
+				elif result == 'wrongpassword':
+					result = 'wait'
+					#show wrong password
+				elif self.pipe = 'checkpassword':
+					result = WaitForPg()
+				elif result == 'wait':
+					sleep(0.05)
+			#Zobaczymy co dalej
+				
+					
+	def WaitForPg(self):
+		self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '" --log-level 5')#, stdout=PIPE)#, creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
+		timeout = TimerInit()
+		pgservice = False
+		while self.pgservice.poll() is None:
+			if TimerDiff(timeout) > 2500:
+				pgservice = True
+				break
+			else:
+				sleep(0.05)
+		if not pgservice:
 			stdout = str(self.pgservice.communicate()[0])
 			if 'password is wrong' in stdout:
-				print('ERROR: Wallet have password')
-				self.hRequirePassword.click()
+				if self.pwd == '':
+					return 'requirepassword'
+				else:
+					return 'wrongpassword'
 			else:
 				print("That shouldn't happen!!!")
 				self.close()
 		else:
-			self.hOffline.click()
+			return 'ok'
 				
 	def PgInitialized(self):
 		if self.pgservice.poll() is None:
