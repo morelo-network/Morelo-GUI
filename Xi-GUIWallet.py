@@ -244,11 +244,13 @@ def GetWalletBalance():
 	return json.loads(response.text)
    
 def GetWalletAddress():
+	response = False
 	try:
 		response = requests.post('http://127.0.0.1:38070/json_rpc', data='{"method" : "getAddresses", "password":"","params" : {}, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+		response = json.loads(response.text)
 	except:
 		sleep(0.1)
-	return json.loads(response.text)
+	return response
 
 def GetWalletTransactions(start, count):
 	transactions = []
@@ -578,17 +580,12 @@ If you enjoy the program you can support me by donating some GLX using button be
 			ctrl.hide()
 		self.tray_icon.show()
 		#Wallet initialization
-		if int(config['wallet']['autohide']):
-			print('INFO: Hiding window to tray')
-			self.tray_icon.showMessage('Info', 'Wallet hidden to tray', msecs=3000)
-		else:
-			self.show()
-		threading.Timer(0, self.NetworkThread).start()
+		threading.Timer(0.5, self.NetworkThread).start()
 	
 	def GetNodeInfo(self):
 		response = False
 		try:
-			response = requests.post(wallet_url + '/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+			response = requests.post(daemon_url + '/rpc', data='{"method" : "explorer.info.node", "params" : null, "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 		except:
 			pass
 		if response:
@@ -597,8 +594,9 @@ If you enjoy the program you can support me by donating some GLX using button be
 		
 	def WaitForDaemon(self):
 		timeout = TimerInit()
-		while TimerDiff(timeout) < 5000:
+		while TimerDiff(timeout) < 60000:
 			nodeInfo = self.GetNodeInfo()
+			if nodeInfo: print(nodeInfo.text)
 			if nodeInfo and 'result' in nodeInfo.json:
 				return True
 			sleep(0.1)
@@ -737,6 +735,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 	def button_proc(self):
 		obj = self.sender()
 		if self.netSelect and obj != self.hButtonSelect:
+			print('chowanie elementow')
 			for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 				item.hide()
 			GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 10%)')
@@ -771,6 +770,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 				self.activeTab = obj
 			else:
 				if obj in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
+					print('wybor elementu')
 					lastSetting = config['wallet']['connection']
 					if obj == self.hButtonSelectLocal:
 						config['wallet']['connection'] = 'local'
@@ -788,6 +788,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 						config['wallet']['connection'] = 'custom'
 						self.hLabelSelection.setText('Use custom node')
 					if lastSetting != config['wallet']['connection']:
+						print('zmieniono cfg')
 						if config['wallet']['connection'] == 'custom':
 							for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
 								ctrl.show()
@@ -800,6 +801,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 							config.write(configfile)
 				if obj == self.hButtonSelect:
 					if self.netSelect:
+						print('schowaj liste')
 						for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 							item.hide()
 						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 10%)')
@@ -807,6 +809,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 						self.netSelect = False
 						self.hButtonSelect.setText('▼')
 					else:
+						print('rozwin liste')
 						for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 							item.show()
 						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(26, 188, 156, 50%)')
@@ -817,7 +820,13 @@ If you enjoy the program you can support me by donating some GLX using button be
 				elif obj == self.hOffline:
 					self.runOffline()
 				elif obj == self.hButtonPass:
-					threading.Timer(0, self.PasswordCheck).start()
+					self.hLabelInit.show()
+					self.hLabelPass.hide()
+					self.hInputPass.hide()
+					self.hButtonPass.hide()
+					self.pwd = self.hInputPass.text()
+					if self.pwd == '': self.pwd = -1
+					self.pipe = 'postpassword'
 				elif obj == self.hButtonPassSet:
 					self.pwd = self.hInputPass.text()
 					self.pipe = 'newwallet'
@@ -979,8 +988,8 @@ If you enjoy the program you can support me by donating some GLX using button be
 	
 	def XiNetworkUpdate(self):
 		nodeInfo = self.GetNodeInfo()
-		self.nodeSync = nodeInfo['result']['chain']['top_height']
-		self.networkSync = nodeInfo['result']['p2p']['height']
+		self.nodeSync = nodeInfo.json['result']['chain']['top_height']
+		self.networkSync = nodeInfo.json['result']['p2p']['height']
 		walletInfo = GetWalletBalance()
 		self.walletBalance = walletInfo['result']['available_balance'] / 1000000
 		self.walletBalanceLocked = walletInfo['result']['locked_amount'] / 1000000
@@ -1017,23 +1026,29 @@ If you enjoy the program you can support me by donating some GLX using button be
 		self.UpdateTransactions()
 	
 	def NetworkThread(self):
+		global daemon_url
 		if '--offline' in app.arguments():
 			print('INFO: Running wallet in offline mode')
 			self.hOffline.click()
 		else:
+			if int(config['wallet']['autohide']):
+				print('INFO: Hiding window to tray')
+				self.tray_icon.showMessage('Info', 'Wallet hidden to tray', msecs=3000)
+			else:
+				self.hShow.click()
 			daemon = False
-			#if ProcessExists("xi-daemon"):
-			#	ProcessClose("xi-daemon")
+			if ProcessExists("xi-daemon"):
+				ProcessClose("xi-daemon")
 			if config['wallet']['connection'] != 'local':
 				print('INFO: Connecting to', config['wallet']['url'] + '...')
-				if not self.WaitForDaemon():
+				if self.WaitForDaemon():
 					daemon = True
 				else:
 					print('ERROR: Unable connect to external node')
-					wallet_url = 'http://127.0.0.1:22869'
+					daemon_url = 'http://127.0.0.1:22869'
 			if not daemon:
 				print('INFO: Starting local node...')
-				#self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
+				self.xi_daemon = Popen("xi-daemon --p2p-local-ip --rpc-server --block-explorer-enable --network Galaxia.MainNet", creationflags = CREATE_NEW_CONSOLE)
 				if self.WaitForDaemon():
 					daemon = True
 				else:
@@ -1049,8 +1064,10 @@ If you enjoy the program you can support me by donating some GLX using button be
 					self.hButtonOpen.show()
 					self.hLabelTip.show()
 					self.hLabelInit.hide()
+					self.hShow.click()
 				else:
 					print('INFO: Wallet file found')
+					self.pipe = 'pgservice'
 			while True:
 				if self.pipe == 'pgservice':
 					break
@@ -1067,31 +1084,44 @@ If you enjoy the program you can support me by donating some GLX using button be
 				else:
 					sleep(0.05)
 			#Pg service initializing
-			#if ProcessExists("xi-pgservice"):
-			#	ProcessClose("xi-pgservice")
-			if self.pwd:
+			if ProcessExists("xi-pgservice"):
+				ProcessClose("xi-pgservice")
+			if self.pwd == -1:
 				print('INFO: Starting xi-pgservice (New wallet generated)')
 			else:
 				print('INFO: Starting xi-pgservice (Password protected check)')
-			result = WaitForPg()
 			while True:
+				result = self.WaitForPg()
 				if result == 'ok':
 					break
 				elif result == 'requirepassword':
-					result = 'wait'
-					#SHOW password field
+					self.hLabelInit.hide()
+					self.hLabelPass.show()
+					self.hInputPass.show()
+					self.hButtonPass.show()
+					self.pipe = False
+					while self.pipe != 'postpassword':
+						sleep(0.05)
 				elif result == 'wrongpassword':
-					result = 'wait'
-					#show wrong password
-				elif self.pipe = 'checkpassword':
-					result = WaitForPg()
-				elif result == 'wait':
-					sleep(0.05)
-			#Zobaczymy co dalej
+					print('ERROR: Wrong password')
+					self.hLabelPassWrong.show()
+					self.hLabelPass.show()
+					self.hLabelPassWrong.show()
+					self.hInputPass.show()
+					self.hButtonPass.show()
+					self.hLabelInit.hide()
+					self.pipe = False
+					while self.pipe != 'postpassword':
+						sleep(0.05)
+				sleep(0.05)
+			self.WalletStart()
 				
 					
 	def WaitForPg(self):
-		self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + self.pwd + '" --log-level 5')#, stdout=PIPE)#, creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
+		url = daemon_url[7:].split(':')
+		addr = url[0]
+		port = url[1]
+		self.pgservice = Popen('xi-pgservice.exe -w "' + config['wallet']['path'] + '" --rpc-legacy-security --network Galaxia.MainNet -p "' + str(self.pwd) + '" --daemon-address ' + addr + ' --daemon-port ' + port, stdout=PIPE)#, creationflags = CREATE_NEW_CONSOLE if '--debug' in app.arguments() else CREATE_NO_WINDOW)
 		timeout = TimerInit()
 		pgservice = False
 		while self.pgservice.poll() is None:
@@ -1120,10 +1150,7 @@ If you enjoy the program you can support me by donating some GLX using button be
 	
 	def PasswordPrompt(self):
 		self.showWindow()
-		self.hLabelInit.hide()
-		self.hLabelPass.show()
-		self.hInputPass.show()
-		self.hButtonPass.show()
+		
 		
 	def PasswordCheck(self):
 		self.hLabelPass.hide()
