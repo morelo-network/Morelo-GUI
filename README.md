@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/MORELO-PROJECT/Morelo-GUI">
-    <img src="https://github.com/MORELO-PROJECT/Morelo-GUI/blob/master/assets/bg.png" alt="Logo" align="center" width="100%">
+    <img src="https://i.imgur.com/QUho6b1.jpg" alt="Logo" align="center" width="100%">
   </a>
 </p>
 
