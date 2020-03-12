@@ -1,7 +1,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/MORELO-PROJECT/Morelo-GUI">
-    <img src="https://github.com/MORELO-PROJECT/Morelo-GUI/assets/bg.png" alt="Logo" align="center" width="50%">
+    <img src="https://github.com/MORELO-PROJECT/Morelo-GUI/blob/master/assets/bg.png" alt="Logo" align="center" width="50%">
   </a>
 
   <h3 align="center">Morelo-GUI</h3>
