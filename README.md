@@ -1,20 +1,20 @@
 <br />
 <p align="center">
-  <a href="https://gitlab.com/galaxia-project/app/pywallet">
-    <img src="https://i.imgur.com/njyHrw6.png" alt="Logo" align="center" width="50%">
+  <a href="https://github.com/MORELO-PROJECT/Morelo-GUI">
+    <img src="https://github.com/MORELO-PROJECT/Morelo-GUI/assets/bg.png" alt="Logo" align="center" width="50%">
   </a>
 
-  <h3 align="center">Xi-GUIWallet</h3>
+  <h3 align="center">Morelo-GUI</h3>
 
   <p align="center">
-    Easy to use and user friendly Galaxia GUI wallet!
+    Easy to use and user friendly Morelo GUI wallet!
     <br />
     <br />
-    [**Report Bug**](https://gitlab.com/galaxia-project/app/pywallet/issues)
+    [Report Bug](https://github.com/MORELO-PROJECT/Morelo-GUI/issues)
     ·
-    [**Request Feature**](https://gitlab.com/galaxia-project/app/pywallet/issues)
+    [Request Feature](https://gitlab.com/galaxia-project/app/pywallet/issues)
     ·
-    [**Releases**](https://gitlab.com/galaxia-project/app/pywallet/releases)
+    [Releases](https://github.com/MORELO-PROJECT/Morelo-GUI/releases)
   </p>
 </p>
 
