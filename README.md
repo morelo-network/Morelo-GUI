@@ -1,21 +1,7 @@
-<br />
 <p align="center">
   <a href="https://github.com/MORELO-PROJECT/Morelo-GUI">
-    <img src="https://github.com/MORELO-PROJECT/Morelo-GUI/blob/master/assets/bg.png" alt="Logo" align="center" width="50%">
+    <img src="https://github.com/MORELO-PROJECT/Morelo-GUI/blob/master/assets/bg.png" alt="Logo" align="center" width="100%">
   </a>
-
-  <h3 align="center">Morelo-GUI</h3>
-
-  <p align="center">
-    Easy to use and user friendly Morelo GUI wallet!
-    <br />
-    <br />
-    [Report Bug](https://github.com/MORELO-PROJECT/Morelo-GUI/issues)
-    ·
-    [Request Feature](https://gitlab.com/galaxia-project/app/pywallet/issues)
-    ·
-    [Releases](https://github.com/MORELO-PROJECT/Morelo-GUI/releases)
-  </p>
 </p>
 
 
@@ -36,14 +22,14 @@
 
 ### About The Project
 
-Standard Galaxia wallet application is console-based application, and this is reason why it's sometimes hard to operate on her. So I created this easy to use, user friendly and nice looking GUI wallet for Galaxia.
+Standard Morelo wallet application is console-based application, and this is reason why it's sometimes hard to operate on her. So I created this easy to use, user friendly and nice looking GUI wallet for Morelo.
 
 Why:
 * User friendly
 * Easy to setup and use
 * Nice looking
 
-Of course that wallet doesn't giving you full control of Galaxia wallet, but giving you enough features for basic usage. If you have any suggestions you can pull a request and i will review that.
+Of course that wallet doesn't giving you full control of Morelo wallet, but giving you enough features for basic usage. If you have any suggestions you can pull a request and i will review that.
 
 ### Built With
 * [Python 3.7](https://www.python.org/downloads/)
@@ -53,23 +39,23 @@ Of course that wallet doesn't giving you full control of Galaxia wallet, but giv
 
 ### Getting Started
 
-1) Download latest GUI wallet release.
-2) Download latest Galaxia binaries.
+1) Download latest Morelo-GUI release.
+2) Download latest Morelo binaries.
 3) Unpack both with any archive unpacker in same folder.
-4) Run Xi-GUIWallet.
+4) Run Morelo-GUI.
 5) Follow steps in application to create or open existing wallet.
 
 ### Prerequisites
 
-If you want run GUI wallet script by self or you using other OS than windows you need that things:
+If you want run Morelo_GUI script by self or you using other OS than windows you need that things:
 
 * [Python 3.7](https://www.python.org/downloads/)
 
 Download, run installator and follow installation steps.
 
-* [Latest Galaxia binaries](https://releases.galaxia-project.com/stable/latest/)
+* [Latest Morelo binaries](https://github.com/MORELO-PROJECT/morelo/releases)
 
-Download and unpack binaries (xi-daemon, xi-pgservice) in same folder as script.
+Download and unpack binaries (morelod, morelo-wallet-rpc) in same folder as script.
 
 * PyQt 5
 * QrCode
@@ -88,17 +74,17 @@ If some another package is missed, script will tell you during execution.
 
 ### Usage
 
-If you using windows just run 'Xi-GUIWallet' from latest release or run python script using command:
-```sh
-python Xi-GUIWallet.py
-```
+If you using windows just run 'Morelo-GUI.exe' from latest release
 Then follow steps in application.
 
-If you using another OS than windows you need run python script manually.
+If you using another OS than windows you need run python script manually:
+```sh
+python Morelo-GUI.py
+```
 
 
 ## Contact
 
 Krzysztof Walędziak - E-mail: mrkris7100@gmail.com - [Discord](https://discordapp.com/): Mrkris7100#1836
 
-Project Link: [https://gitlab.com/galaxia-project/app/pywallet](https://gitlab.com/galaxia-project/app/pywallet)
+Project Link: [https://github.com/MORELO-PROJECT/Morelo-GUI](https://github.com/MORELO-PROJECT/Morelo-GUI)
