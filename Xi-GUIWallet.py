@@ -240,10 +240,6 @@ def find_str(s, char):
 			index += 1
 
 	return -1
-
-"""
->>> respond = requests.post('http://morelo:random@127.0.0.1:16969/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_version"}',headers={'Content-Type':'application/json'})
-"""
 	
 def SendTransaction(receiver, amount, pay_id):
 	response = requests.post('http://127.0.0.1:38411/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"transfer","params":{"destinations":[{"amount":' + str(int(amount * 1000000000)) +',"address":"' + receiver +'"}]}}', headers={'Content-Type':'application/json'})
@@ -371,17 +367,23 @@ class App(QWidget):
 		self.hLabelPassWrong.hide()
 		self.hLabelInitErr.hide()
 		
-		self.hButtonCreate = self.GUICtrlCreateButton('', 250, 200, 100, 100)
+		self.hButtonCreate = self.GUICtrlCreateButton('', 150, 200, 100, 100)
 		GUICtrlSetBkColor(self.hButtonCreate, "url('./assets/wallet_new.png')")
 		GUICtrlSetHoverBkColor(self.hButtonCreate, "url('./assets/wallet_new_hover.png')")
 		self.hButtonCreate.installEventFilter(self)
 		self.hButtonCreate.hide()
 		
-		self.hButtonOpen = self.GUICtrlCreateButton('', 450, 200, 100, 100)
+		self.hButtonOpen = self.GUICtrlCreateButton('', 350, 200, 100, 100)
 		GUICtrlSetBkColor(self.hButtonOpen, "url('./assets/wallet_open.png')")
 		GUICtrlSetHoverBkColor(self.hButtonOpen, "url('./assets/wallet_open_hover.png')")
 		self.hButtonOpen.installEventFilter(self)
 		self.hButtonOpen.hide()
+		
+		self.hButtonRestore = self.GUICtrlCreateButton('', 550, 200, 100, 100)
+		GUICtrlSetBkColor(self.hButtonRestore, "url('./assets/wallet_restore.png')")
+		GUICtrlSetHoverBkColor(self.hButtonRestore, "url('./assets/wallet_restore_hover.png')")
+		self.hButtonRestore.installEventFilter(self)
+		self.hButtonRestore.hide()
 		
 		'''
 		Left Panel controls
@@ -629,7 +631,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.hLabelTip.setText('Create new wallet')
 				elif obj == self.hButtonOpen:
 					self.hLabelTip.setText('Open existing wallet')
-			if type == 128 and (obj == self.hButtonCreate or obj == self.hButtonOpen):
+				elif obj == self.hButtonRestore:
+					self.hLabelTip.setText('Restore wallet from seed')
+			if type == 128 and (obj == self.hButtonCreate or obj == self.hButtonOpen or obj == self.hButtonRestore):
 				self.hLabelTip.setText('What you want to do?')
 		return 0
 	
@@ -839,6 +843,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 						ctrl.hide()
 					self.hButtonCreate.show()
 					self.hButtonOpen.show()
+					self.hButtonRestore.show()
 					self.hLabelTip.show()
 					self.hLabelLogo.show()
 					self.running = False
@@ -877,6 +882,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelInit.show()
 						self.hButtonCreate.hide()
 						self.hButtonOpen.hide()
+						self.hButtonRestore.hide()
 						self.hLabelTip.hide()
 						self.pipe = 'walletRPC'
 					else:
@@ -888,6 +894,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					config['wallet']['path'] = random_container + '.wallet'
 					self.hButtonCreate.hide()
 					self.hButtonOpen.hide()
+					self.hButtonRestore.hide()
 					self.hLabelTip.hide()
 					self.hLabelInit.hide()
 					self.hLabelPassSet.show()
@@ -1067,14 +1074,17 @@ If you enjoy the program you can support me by donating some MRL using button be
 					print('ERROR: Wallet file not found')
 					self.hButtonCreate.show()
 					self.hButtonOpen.show()
+					self.hButtonRestore.show()
 					self.hLabelTip.show()
 					self.hLabelInit.hide()
 					if int(config['wallet']['autohide']): self.hShow.click()
 				else:
 					print('INFO: Wallet file found')
 					self.pipe = 'walletRPC'
-			while True:
+			while self.running:
 				while True:
+					if not self.running:
+						return
 					if self.pipe == 'walletRPC':
 						break
 					elif self.pipe == 'newwallet':
@@ -1140,6 +1150,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				self.hLabelLogo.hide()
 				self.hButtonCreate.hide()
 				self.hButtonOpen.hide()
+				self.hButtonRestore.hide()
 				self.hLabelTip.hide()
 				self.hButtonLogout.show()
 				for ctrl in self.tabsControls['leftpanel']:
@@ -1194,6 +1205,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hLabelLogo.hide()
 		self.hButtonCreate.hide()
 		self.hButtonOpen.hide()
+		self.hButtonRestore.hide()
 		self.hLabelTip.hide()
 		date = datetime.datetime.fromtimestamp(1576705196)
 		self.addTx.emit(str(date), '4437459bac024c7ce3fc0ecf63ef482466fd19141f46709c1cd640aeb6c20e27', str(1.234000))
