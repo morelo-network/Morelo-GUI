@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/MORELO-PROJECT/Morelo-GUI">
+  <a href="https://github.com/morelo-network/Morelo-GUI">
     <img src="https://i.imgur.com/QUho6b1.jpg" alt="Logo" align="center" width="100%">
   </a>
 </p>
@@ -87,4 +87,4 @@ python Morelo-GUI.py
 
 Krzysztof Walędziak - E-mail: mrkris7100@gmail.com - [Discord](https://discordapp.com/): Mrkris7100#1836
 
-Project Link: [https://github.com/MORELO-PROJECT/Morelo-GUI](https://github.com/MORELO-PROJECT/Morelo-GUI)
+Project Link: [https://github.com/Morelo-Network/Morelo-GUI](https://github.com/MORELO-PROJECT/Morelo-GUI)
