@@ -20,6 +20,11 @@ jobs:
     - name: build with pyinstaller
       run: |
         pyinstaller --onefile MRL-GUI-Wallet.py
+    - name: Upload compiled binary for windows
+        uses: actions/upload-artifact@v1
+        with:
+          name: Windows binary
+          path: dist/MRL-GUI-Wallet.exe
 
   build-macos:
 
@@ -38,6 +43,11 @@ jobs:
     - name: build with pyinstaller
       run: |
         pyinstaller --onefile MRL-GUI-Wallet.py
+    - name: Upload compiled binary for MacOS
+        uses: actions/upload-artifact@v1
+        with:
+          name: Windows binary
+          path: dist/MRL-GUI-Wallet
 
   build-ubuntu:
 
@@ -56,3 +66,8 @@ jobs:
     - name: build with pyinstaller
       run: |
         pyinstaller --onefile MRL-GUI-Wallet.py
+    - name: Upload compiled binary for ubuntu
+        uses: actions/upload-artifact@v1
+        with:
+          name: Windows binary
+          path: dist/MRL-GUI-Wallet
