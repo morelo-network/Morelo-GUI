@@ -48,7 +48,7 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install threading')
 	missingLibs = True
 try:
-	from subprocess import run, Popen, PIPE, CREATE_NO_WINDOW, CREATE_NEW_CONSOLE
+	from subprocess import run, Popen, PIPE#, CREATE_NO_WINDOW, CREATE_NEW_CONSOLE
 except:
 	pass
 	print('ERROR: Missing module, try install it by command: python -m pip install subprocess')
@@ -130,13 +130,14 @@ except:
 if missingLibs:
 	sleep(5)
 	sys.exit()
+#qrCode module is optional
 noQR = False
 try:
 	import qrcode
 except:
 	noQR = True
 	print('INFO: QRCode module not found, running without it')
-
+#time measurment
 def TimerInit():
 	return int(round(time.time() * 1000))
 	
@@ -146,7 +147,7 @@ def TimerDiff(hTimer):
 def randomString(stringLength=10):
 	letters = string.ascii_lowercase
 	return ''.join(choice(letters) for i in range(stringLength))
-
+#Checking process exists
 def ProcessExists(processName):
 	for proc in process_iter():
 		try:
@@ -155,7 +156,7 @@ def ProcessExists(processName):
 		except (NoSuchProcess, AccessDenied, ZombieProcess):
 			pass
 	return False
-	
+#closing process by name
 def ProcessClose(processName):
 	for proc in process_iter():
 		try:
@@ -164,7 +165,7 @@ def ProcessClose(processName):
 		except (NoSuchProcess, AccessDenied, ZombieProcess):
 			pass
 	return False
-
+#updating controls (widgets) style
 def GUICtrlUpdateStyle(control):
 	style = control.type + '''#''' + control.objectName() + ''' {
 				font-size: ''' + control.myfontsize + ''';
@@ -189,7 +190,7 @@ def GUICtrlUpdateStyle(control):
 
 initStyle = '''
 	QPushButton {
-		background: rgba(255, 255, 255, 10%);
+		background: rgba(255, 255, 255, 15%);
 		color: rgb(26, 188, 156);
 		border-radius: 50%;
 		font-size: 22px;
@@ -199,7 +200,7 @@ initStyle = '''
 		color: white;
 	}
 '''
-
+#modyfing controls (widgets) style attributes
 def GUICtrlSetBkColor(control, color):
 	control.mybackgroundcolor = color
 	GUICtrlUpdateStyle(control)
@@ -219,7 +220,7 @@ def GUICtrlSetColor(control, color):
 def GUICtrlSetFontSize(control, size):
 	control.myfontsize = size
 	GUICtrlUpdateStyle(control)
-	
+#validating amount is propertly formatted
 def ValidAmount(szAmount):
 	szChrset = "0123456789."
 	for iChr in range(0, len(szAmount), 1):
@@ -242,17 +243,22 @@ def find_str(s, char):
 	return -1
 	
 def SendTransaction(receiver, amount, pay_id):
-	response = requests.post('http://127.0.0.1:38411/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"transfer","params":{"destinations":[{"amount":' + str(int(amount * 1000000000)) +',"address":"' + receiver +'"}]}}', headers={'Content-Type':'application/json'})
+	response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"transfer","params":{"destinations":[{"amount":' + str(int(amount * 1000000000)) +',"address":"' + receiver +'"}]}}', headers={'Content-Type':'application/json'})
 	return json.loads(response.text)
    
 def GetWalletBalance():
-	response = requests.post('http://127.0.0.1:38411/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_balance","params":{"account_index":0}', headers={'Content-Type':'application/json'})
-	return json.loads(response.text)
+	response = -1
+	try:
+		response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_balance","params":{"account_index":0}', headers={'Content-Type':'application/json'})
+		response = json.loads(response.text)
+	except:
+		pass
+	return response
    
 def GetWalletAddress():
 	response = False
 	try:
-		response = requests.post('http://127.0.0.1:38411/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_address","params":{"account_index":0}', headers={'Content-Type':'application/json'})
+		response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_address","params":{"account_index":0}', headers={'Content-Type':'application/json'})
 		response = json.loads(response.text)
 	except:
 		pass
@@ -260,7 +266,7 @@ def GetWalletAddress():
 
 def GetWalletTransactions(start, count):
 	transactions = []
-	response = requests.post('http://127.0.0.1:38411/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"filter_by_height":true, "pending":true, "in":true, "out":true, "min_height":' + str(start) + ', "max_height":' + str(start + count) +'}}', headers={'Content-Type':'application/json'})
+	response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"filter_by_height":true, "pending":true, "in":true, "out":true, "min_height":' + str(start) + ', "max_height":' + str(start + count) +'}}', headers={'Content-Type':'application/json'})
 	data = json.loads(response.text)
 	if 'in' in data['result']:
 		for block in data['result']['in']:
@@ -274,25 +280,27 @@ def GetWalletTransactions(start, count):
 	return transactions
 	
 def GetTransactionInfo(hash):
-	response = requests.post('http://127.0.0.1:38411/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"get_transfer_by_txid","params":{"txid":"' + hash + '"}}', headers={'Content-Type':'application/json'})
+	response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"get_transfer_by_txid","params":{"txid":"' + hash + '"}}', headers={'Content-Type':'application/json'})
 	return json.loads(response.text)
 
+#Main window class
 class App(QWidget):
 	addTx = pyqtSignal(str, str, str)
 	sortTx = pyqtSignal()
 
 	def __init__(self):
+		#initial values for some variables
 		super().__init__()
-		self.title = 'morelo GUI Wallet'
+		self.title = 'Morelo GUI Wallet'
 		self.width = 800
 		self.height = 470
 		self.ctrlCount = 0
-		self.timer = 0
 		self.notifications = 0
 		self.walletRPC = 0
 		self.xi_daemon = 0
 		self.XiNetworkState, self.walletBalance, self.walletBalanceLocked = 0, 0, 0
 		self.wallet_address = ''
+		self.wallet_keys = {'view' : '', 'spend' : '', 'seed' : ''}
 		self.exit_from_tray = False
 		self.valid_amount = False
 		self.valid_address = False
@@ -302,6 +310,7 @@ class App(QWidget):
 		self.notQueue = queue.Queue()
 		self.walletRPC_initialized = False
 		self.running = True
+		self.timer = False
 		self.pwd = ''
 		self.scanning = False
 		self.netSelect = False
@@ -312,30 +321,39 @@ class App(QWidget):
 		print('INFO: Window config initialized')
 		self.initUI()
 		
+	#custom close event
 	def closeEvent(self, event):
-		#Tray close
+		#checking if minimize to tray instead of closing checbox is checked
 		if self.hCheckboxTrayClose.isChecked() and not self.exit_from_tray:
+			#if yes just hide main window and ignore close event
 			self.hide()
 			event.ignore()
 		else:
+		#if no close wallet
 			if not '--offline' in app.arguments():
 				try:
-					requests.post('http://127.0.0.1:38411/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+				#send close signal to wallet's rpc
+					requests.post('http://127.0.0.1:38420/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 				except:
 					pass
+				#close daemon
 				if self.xi_daemon: self.xi_daemon.terminate()
+			#close background thread
 			if self.timer: self.timer.cancel()
 			if self.notifications: self.notifications = False
+			#destroy tray icon
 			self.tray_icon.hide()
 			self.running = False
 			event.accept()
 	
 	def initUI(self):
 		print('INFO: Generating window controls')
+		#window title and size
 		self.setWindowTitle(self.title)
 		self.setFixedSize(self.width, self.height)
 		self.tabsControls = {}
 
+		#some shitty comunication
 		self.hShow = self.GUICtrlCreateButton('', 0, 0)
 		self.hOffline = self.GUICtrlCreateButton('', 0, 0)
 		
@@ -352,7 +370,8 @@ class App(QWidget):
 		self.hLabelTip.hide()
 		self.hLabelInitErr = self.GUICtrlCreateLabel('Failed to start daemon', 250, 300, 300, 0, 0, '#b53b3b', '14px')
 		self.hLabelInitErr.setAlignment(Qt.AlignCenter)
-		
+
+		#Pasword prompt controls
 		self.hLabelPass = self.GUICtrlCreateLabel('This wallet is protected, enter password to unlock', 250, 220, 300, 0, 0, 0, '11px')
 		self.hLabelPassSet = self.GUICtrlCreateLabel('Specify password for new wallet (can be empty)', 250, 220, 300, 0, 0, 0, '11px')
 		self.hInputPass = self.GUICtrlCreateInput('', 250, 240, 230, 30)
@@ -367,6 +386,7 @@ class App(QWidget):
 		self.hLabelPassWrong.hide()
 		self.hLabelInitErr.hide()
 		
+		#create / open / restore wallet buttons
 		self.hButtonCreate = self.GUICtrlCreateButton('', 150, 200, 100, 100)
 		GUICtrlSetBkColor(self.hButtonCreate, "url('./assets/wallet_new.png')")
 		GUICtrlSetHoverBkColor(self.hButtonCreate, "url('./assets/wallet_new_hover.png')")
@@ -385,13 +405,11 @@ class App(QWidget):
 		self.hButtonRestore.installEventFilter(self)
 		self.hButtonRestore.hide()
 		
-		'''
-		Left Panel controls
-		'''
+		#left panel controls
 		#Background rects
-		self.box1 = self.GUICtrlCreateBox('rgba(255, 255, 255, 10%)', 0, 0, 200, 145)
-		self.box2 = self.GUICtrlCreateBox('rgba(255, 255, 255, 10%)', 0, 325, 200, 115)
-		self.box3 = self.GUICtrlCreateBox('rgba(255, 255, 255, 10%)', 0, 445, 800, 25)
+		self.box1 = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 0, 0, 200, 145)
+		self.box2 = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 0, 325, 200, 115)
+		self.box3 = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 0, 445, 800, 25)
 		
 		#Log out button
 		self.hButtonLogout = self.GUICtrlCreateButton("Log Out", 725, 410, 70, 30)
@@ -409,7 +427,7 @@ class App(QWidget):
 		self.hLabelNetworkStatus = self.GUICtrlCreateLabel("Disconnected", 125, 450, 0, 0, 'transparent', '#fc7c7c', '11px', 'bold')
 		self.hLabelNetworkDiff = self.GUICtrlCreateLabel("Network diff: 1000000000", 300, 450, 190, 0, 'transparent', 0, '11px', 'bold')
 		self.hLabelNetworkHashrate = self.GUICtrlCreateLabel("Network hashrate: 0", 555, 450, 190, 0, 'transparent', 0, '11px', 'bold')
-		#Nav
+		#Navigation
 		self.activeTab = self.hButtonSend = self.GUICtrlCreateButton('Send', 0, 150, 200, 35, 'rgba(230, 140, 0, 50%)', 'white')
 		self.hButtonReceive = self.GUICtrlCreateButton("Receive", 0, 185, 200, 35)
 		self.hButtonHistory = self.GUICtrlCreateButton("Transactions", 0, 220, 200, 35)
@@ -417,7 +435,7 @@ class App(QWidget):
 		self.hButtonAbout = self.GUICtrlCreateButton("About", 0, 290, 200, 35)
 		
 		self.navButtons = (self.hButtonSend, self.hButtonReceive, self.hButtonHistory, self.hButtonSettings, self.hButtonAbout)
-		
+		#controls grouping
 		self.tabsControls['leftpanel'] = [self.box1, self.box2, self.box3, self.hLabelGalaxia, self.hLabelBalance,
 											self.hLabelBalanceValue, self.hLabelBalanceLocked, self.hLabelBalanceLockedValue,
 											self.hLabelNetwork, self.hButtonSend, self.hButtonReceive,
@@ -429,7 +447,7 @@ class App(QWidget):
 		validator = QDoubleValidator()
 		validator.setBottom(0.000000001)
 		validator.setDecimals(9)
-		locale = QLocale('Enblish')
+		locale = QLocale('English')
 		locale.setNumberOptions(QLocale.RejectGroupSeparator);
 		validator.setLocale(locale)
 		self.hInputAmount.setValidator(validator)
@@ -447,42 +465,42 @@ class App(QWidget):
 		self.hButtonAmountAll = self.GUICtrlCreateButton("or All", 475, 30, 50, 30)
 		self.hButtonAddressPaste = self.GUICtrlCreateButton("Paste", 475, 80, 50, 30)
 		self.hButtonSendSend = self.GUICtrlCreateButton("Send", 215, 170, 50, 30)
-		
+		#grouping controls
 		self.tabsControls[self.hButtonSend.objectName()] = [self.hInputAmount, self.hInputAddress, self.hInputPaymentID, self.hLabelAmount, self.hLabelAmountErr,
 											self.hLabelAddress, self.hLabelAddressErr, self.hLabelPaymentID, self.hButtonAmountAll, self.hButtonAddressPaste,
 											self.hButtonSendSend]
 											
 		#Receive TAB
-		self.hInputWalletAddress = self.GUICtrlCreateInput('', 215, 30, 250, 30, 'rgba(255, 255, 255, 10%)')
+		self.hInputWalletAddress = self.GUICtrlCreateInput('', 215, 30, 250, 30, 'rgba(255, 255, 255, 15%)')
 		self.hInputWalletAddress.setReadOnly(True)
 		
 		self.hLabelWalletAddress = self.GUICtrlCreateLabel("Wallet address", 215, 15)
 		self.QrAddress = self.GUICtrlCreateLabel('', 215, 65, 225, 225)
 		
 		self.hButtonWalletCopy = self.GUICtrlCreateButton("Copy", 475, 30, 50, 30)
-		
+		#grouping controls
 		self.tabsControls[self.hButtonReceive.objectName()] = [self.hInputWalletAddress, self.hLabelWalletAddress, self.hButtonWalletCopy, self.QrAddress]
 		
 		#Settings TAB
-		self.hCheckboxStartupBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 10%)', 215, 15, 25, 25)
+		self.hCheckboxStartupBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 15, 25, 25)
 		self.hCheckboxStartup = self.GUICtrlCreateCheckBox('', 215, 15)
 		if int(config['wallet']['autostart']):
 			self.hCheckboxStartup.setCheckState(2)
 		self.hCheckboxText = self.GUICtrlCreateLabel('Run at windows startup', 245, 20, 0, 0, 0, 0, '13px')
 		
-		self.hCheckboxTrayCloseBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 10%)', 215, 45, 25, 25)
+		self.hCheckboxTrayCloseBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 45, 25, 25)
 		self.hCheckboxTrayClose = self.GUICtrlCreateCheckBox('', 215, 45)
 		if int(config['wallet']['trayclose']):
 			self.hCheckboxTrayClose.setCheckState(2)
 		self.hCheckboxTrayCloseText = self.GUICtrlCreateLabel('Hide to tray instead of closing', 245, 50, 0, 0, 0, 0, '13px')
 		
-		self.hCheckboxAutoHideBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 10%)', 215, 75, 25, 25)
+		self.hCheckboxAutoHideBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 75, 25, 25)
 		self.hCheckboxAutoHide = self.GUICtrlCreateCheckBox('', 215, 75)
 		if int(config['wallet']['autohide']):
 			self.hCheckboxAutoHide.setCheckState(2)
 		self.hCheckboxAutoHideText = self.GUICtrlCreateLabel('Hide to tray on startup', 245, 80, 0, 0, 0, 0, '13px')
 		
-		self.hCheckboxNotsBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 10%)', 215, 105, 25, 25)
+		self.hCheckboxNotsBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 105, 25, 25)
 		self.hCheckboxNots = self.GUICtrlCreateCheckBox('', 215, 105)
 		if int(config['wallet']['disablenotifications']):
 			self.hCheckboxNots.setCheckState(2)
@@ -497,13 +515,13 @@ class App(QWidget):
 
 		self.hButtonSelect = self.GUICtrlCreateButton('▼', 365, 175, 30, 30)
 		
-		self.hButtonSelectLocal = self.GUICtrlCreateButton('Run local node', 215, 205, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectLocal = self.GUICtrlCreateButton('Run local node', 215, 205, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
 		self.hButtonSelectLocal.hide()
-		self.hButtonSelectPublic1 = self.GUICtrlCreateButton('Use public node #1', 215, 235, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectPublic1 = self.GUICtrlCreateButton('Use public node #1', 215, 235, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
 		self.hButtonSelectPublic1.hide()
-		self.hButtonSelectPublic2 = self.GUICtrlCreateButton('Use public node #2', 215, 265, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectPublic2 = self.GUICtrlCreateButton('Use public node #2', 215, 265, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
 		self.hButtonSelectPublic2.hide()
-		self.hButtonSelectManual = self.GUICtrlCreateButton('Use custom node', 215, 295, 180, 30, 'rgba(255, 255, 255, 10%);text-align: left;padding-left: 7px')
+		self.hButtonSelectManual = self.GUICtrlCreateButton('Use custom node', 215, 295, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
 		self.hButtonSelectManual.hide()
 		
 		self.hLabelUrl = self.GUICtrlCreateLabel('Custom node address', 450, 160)
@@ -517,7 +535,7 @@ class App(QWidget):
 		self.hInputUrlPort.setValidator(QIntValidator(1, 65535))
 		self.hInputUrlPort.hide()
 		
-		
+		#grouping controls
 		self.tabsControls[self.hButtonSettings.objectName()] = [self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
 		self.hCheckboxStartup, self.hCheckboxStartupBk, self.hCheckboxText, self.hCheckboxTrayClose, 
 		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText, self.hLabelNode, 
@@ -549,7 +567,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hButtonDonate = self.GUICtrlCreateButton('Donate', 215, 150, 75, 30)
 		
 		self.tabsControls[self.hButtonAbout.objectName()] = [self.hLabelAbout, self.hButtonDonate]
-		
+		#hiding controls
 		for ctrl in self.tabsControls[self.hButtonAbout.objectName()]:
 			ctrl.hide()
 		for ctrl in self.tabsControls[self.hButtonReceive.objectName()]:
@@ -558,7 +576,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			ctrl.hide()
 		for ctrl in self.tabsControls[self.hButtonHistory.objectName()]:
 			ctrl.hide()
-			
+		#checking connection type in config	
 		if config['wallet']['connection'] == 'local':
 			self.hLabelSelection.setText('Run local node')
 		elif config['wallet']['connection'] == 'ext1':
@@ -571,7 +589,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hInputUrl.setText(url[0] + ':' + url[1])
 		self.hInputUrlPort.setText(url[2])
 		
-		# Create the menu
+		# Create tray menu
 		self.tray_menu = QMenu()
 		self.tray_show = QAction("Show")
 		self.tray_show.triggered.connect(self.tray_event)
@@ -589,13 +607,33 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.tray_icon.setIcon(QIcon("morelo.ico"))
 		self.setWindowIcon(QIcon("morelo.ico"))
 		
+		#hiding left panel
 		for ctrl in self.tabsControls['leftpanel']:
 				ctrl.hide()
 		for ctrl in self.tabsControls[self.hButtonSend.objectName()]:
 			ctrl.hide()
 		self.tray_icon.show()
-		#Wallet initialization
-		threading.Timer(0.05, self.NetworkThread).start()
+		#Wallet initialization (background thread)
+		self.timer = threading.Timer(0, self.NetworkThread)
+		self.timer.start()
+	
+	def GetWalletKeys(self):
+		try:
+			
+			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}', headers={'Content-Type':'application/json'})
+			response = json.loads(response.text)
+			self.wallet_keys['view'] = response['result']['key']
+			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}', headers={'Content-Type':'application/json'})
+			response = json.loads(response.text)
+			self.wallet_keys['spend'] = response['result']['key']
+			
+			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"mnemonic"}}', headers={'Content-Type':'application/json'})
+			print(response.text)
+			response = json.loads(response.text)
+			self.wallet_keys['seed'] = response['result']['key']
+			print(self.wallet_keys)
+		except:
+			print("ERROR: Can't read wallet keys")
 	
 	def GetNodeInfo(self):
 		response = False
@@ -606,6 +644,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		except:
 			pass
 		if response and response2 and response3:
+			#some shitty mixing responses json
 			response.json = json.loads(response.text)
 			response.json['result']['difficulty'] = 0
 			response2 = json.loads(response2.text)
@@ -623,6 +662,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			sleep(0.5)
 		return False
 	
+	#detecting hover event on create / open / restore wallet buttons and modify "tooltip" with right text
 	def eventFilter(self, obj, event):
 		type = event.type()
 		if obj.isEnabled():
@@ -659,7 +699,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 		qt_pixmap = QPixmap()
 		qt_pixmap.loadFromData(buf.getvalue(), "PNG")
 		self.QrAddress.setPixmap(qt_pixmap)
+
+	class GUICtrlCreateDropDown():
+		def __init__(self, items, parent):
+			print(parent.title)
 	
+	#custom button creating function
 	def GUICtrlCreateButton(self, text, left, top, width = 0, height = 0, background = 0, color = 0, fontsize = 0, fontweight = 0):
 		button = QPushButton(text, self)
 		self.ctrlCount += 1
@@ -670,7 +715,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		button.type = 'QPushButton'
 		button.myfontsize = fontsize if fontsize else '14px'
 		button.myfontweight = fontweight if fontweight else 'bold'
-		button.mybackgroundcolor = background if background else 'rgba(255, 255, 255, 10%)'
+		button.mybackgroundcolor = background if background else 'rgba(255, 255, 255, 15%)'
 		button.mycolor = color if color else 'rgb(230, 140, 0)'
 		button.myborder = 'none'
 		button.myhoverbackgroundcolor = 'rgba(230, 140, 0, 50%)'
@@ -679,6 +724,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		button.clicked.connect(self.button_proc)
 		return button
 		
+	#custom checkbox creating function
 	def GUICtrlCreateCheckBox(self, text, left, top):
 		checkbox = QCheckBox(text, self)
 		self.ctrlCount += 1
@@ -688,6 +734,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		checkbox.toggled.connect(self.checkbox_proc)
 		return checkbox
 	
+	#creating rectangles using labels
 	def GUICtrlCreateBox(self, color, left, top, width, height):
 		box = QLabel(self)
 		box.move(left, top)
@@ -697,6 +744,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		box.setAlignment(Qt.AlignVCenter)
 		return box
 	
+	#custom label creating function
 	def GUICtrlCreateLabel(self, text, left, top, width = 0, height = 0, background = 0, color = 0, fontsize = 0, fontweight = 0):
 		label = QLabel(text, self)
 		self.ctrlCount += 1
@@ -714,7 +762,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 		label.myborder = 'none'
 		GUICtrlUpdateStyle(label)
 		return label
-		
+	
+	#custom input creating function
 	def GUICtrlCreateInput(self, text, left, top, width, height, background = 0, color = 0, fontsize = 0, fontweight = 0):
 		input = QLineEdit(self)
 		self.ctrlCount += 1
@@ -724,7 +773,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		input.setFixedSize(width, height)
 		input.myfontsize = fontisze if fontsize else '14px'
 		input.myfontweight = fontweight if fontweight else 'bold'
-		input.mybackgroundcolor = background if background else 'rgba(255, 255, 255, 10%)'
+		input.mybackgroundcolor = background if background else 'rgba(255, 255, 255, 15%)'
 		input.mycolor = color if color else 'rgb(230, 140, 0)'
 		input.myborder = 'none'
 		GUICtrlUpdateStyle(input)
@@ -733,6 +782,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		input.editingFinished.connect(self.input_proc_end)
 		return input
 		
+	#network status update function (visual)
 	def XiNetworkSetState(self, iState, iPercent = 0):
 		if iState != self.XiNetworkState:
 			self.XiNetworkState = iState
@@ -750,12 +800,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 		elif iState == 1:
 			self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % iPercent + "%)")
 	
+	#buttons event processing function
 	def button_proc(self):
 		obj = self.sender()
 		if self.netSelect and obj != self.hButtonSelect:
 			for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 				item.hide()
-			GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 10%)')
+			GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 15%)')
 			GUICtrlSetColor(self.hButtonSelect, 'rgb(26, 188, 156)')
 			self.hButtonSelect.setText('▼')
 			self.netSelect = False
@@ -776,7 +827,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					else:
 						for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
 								ctrl.hide()
-				GUICtrlSetBkColor(self.activeTab, 'rgba(255, 255, 255, 10%)')
+				GUICtrlSetBkColor(self.activeTab, 'rgba(255, 255, 255, 15%)')
 				GUICtrlSetColor(self.activeTab, 'rgb(230, 140, 0)')
 				for ctrl in self.tabsControls[self.activeTab.objectName()]:
 					ctrl.hide()
@@ -786,25 +837,25 @@ If you enjoy the program you can support me by donating some MRL using button be
 					ctrl.show()
 				self.activeTab = obj
 			else:
+				#custom dropdown menu
 				if obj in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 					lastSetting = config['wallet']['connection']
 					if obj == self.hButtonSelectLocal:
 						config['wallet']['connection'] = 'local'
 						self.hLabelSelection.setText('Run local node')
-						config['wallet']['url'] = 'http://127.0.0.1:22869'
+						config['wallet']['url'] = 'http://127.0.0.1:38422'
 					elif obj == self.hButtonSelectPublic1:
 						config['wallet']['connection'] = 'ext1'
-						config['wallet']['url'] = 'http://5.172.219.176:22869'
+						config['wallet']['url'] = 'http://'
 						self.hLabelSelection.setText('Use public node #1')
 					elif obj == self.hButtonSelectPublic2:
 						config['wallet']['connection'] = 'ext2'
-						config['wallet']['url'] = 'http://5.172.219.176:22869'
+						config['wallet']['url'] = 'http://'
 						self.hLabelSelection.setText('Use public node #2')
 					elif obj == self.hButtonSelectManual:
 						config['wallet']['connection'] = 'custom'
 						self.hLabelSelection.setText('Use custom node')
 					if lastSetting != config['wallet']['connection']:
-						print('zmieniono cfg')
 						if config['wallet']['connection'] == 'custom':
 							for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
 								ctrl.show()
@@ -815,11 +866,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.netChanged = True
 						with open("Wallet.ini", "w") as configfile:
 							config.write(configfile)
+				#dropdown menu button
 				if obj == self.hButtonSelect:
 					if self.netSelect:
 						for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 							item.hide()
-						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 10%)')
+						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 15%)')
 						GUICtrlSetColor(self.hButtonSelect, 'rgb(230, 140, 0)')
 						self.netSelect = False
 						self.hButtonSelect.setText('▼')
@@ -831,12 +883,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.netSelect = True
 						self.hButtonSelect.setText('▲')
 						self.hLabelSelInfo.hide()
+				#logout button
 				elif obj == self.hButtonLogout:
 					print("INFO: Log Out")
-					try:
-						requests.post('http://127.0.0.1:38411/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
-					except:
-						pass
 					for ctrl in self.tabsControls['leftpanel']:
 						ctrl.hide()
 					for ctrl in self.tabsControls[self.activeTab.objectName()]:
@@ -846,9 +895,15 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.hButtonRestore.show()
 					self.hLabelTip.show()
 					self.hLabelLogo.show()
-					self.running = False
+					self.hButtonLogout.hide()
+					self.pipe = 'logout'
+					try:
+						requests.post('http://127.0.0.1:38420/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+					except:
+						pass
 				elif obj == self.hOffline:
 					self.runOffline()
+				#submit password (On wallet opening)
 				elif obj == self.hButtonPass:
 					self.hLabelInit.show()
 					self.hLabelPass.hide()
@@ -857,6 +912,16 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.pwd = self.hInputPass.text()
 					if self.pwd == '': self.pwd = -1
 					self.pipe = 'postpassword'
+				elif obj == self.hButtonRestore:
+					self.hButtonCreate.hide()
+					self.hButtonOpen.hide()
+					self.hButtonRestore.hide()
+					self.hLabelTip.hide()
+					self.hLabelInit.hide()
+					self.hLabelMnemonic.show()
+					self.hInputMnemonic.show()
+					self.hButtonMnemonic.show()
+				#submit password (On wallet creation)
 				elif obj == self.hButtonPassSet:
 					self.pwd = self.hInputPass.text()
 					self.pipe = 'newwallet'
@@ -871,6 +936,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				elif obj == self.hButtonOpen:
 					self.hButtonCreate.setEnabled(False)
 					self.hButtonOpen.setEnabled(False)
+					self.hButtonRestore.setEnabled(False)
 					tkroot = Tk()
 					tkroot.withdraw()
 					file_path = filedialog.askopenfilename(title='Select wallet file', filetypes=[('Wallet containers', '*.wallet')])
@@ -884,10 +950,10 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hButtonOpen.hide()
 						self.hButtonRestore.hide()
 						self.hLabelTip.hide()
-						self.pipe = 'walletRPC'
-					else:
-						self.hButtonCreate.setEnabled(True)
-						self.hButtonOpen.setEnabled(True)
+						self.pipe = 'walletrpc'
+					self.hButtonCreate.setEnabled(True)
+					self.hButtonOpen.setEnabled(True)
+					self.hButtonRestore.setEnabled(True)
 				#Wallet create button
 				elif obj == self.hButtonCreate:
 					random_container = randomString(10)
@@ -932,6 +998,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def AddressFromClip(self):
 		self.hInputAddress.setText(pyperclip.paste())
 	
+	#procesing data when entering data in inputs is done
 	def input_proc_end(self):
 		obj = self.sender()
 		if obj == self.hInputAmount:
@@ -942,6 +1009,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			with open("Wallet.ini", "w") as configfile:
 				config.write(configfile)
 	
+	#some inputs validation 
 	def input_proc(self):
 		obj = self.sender()
 		if obj == self.hInputAmount:
@@ -954,7 +1022,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			else:
 				self.hLabelAmountErr.setText('')
 			if obj.hasAcceptableInput() and float(obj.text()) <= self.walletBalance:
-				GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 255, 255, 10%)')
+				GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 255, 255, 15%)')
 			else:
 				GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 0, 0, 15%)')
 		elif obj == self.hInputAddress:
@@ -971,14 +1039,15 @@ If you enjoy the program you can support me by donating some MRL using button be
 				self.hLabelAddressErr.setText('')
 				self.valid_address = True
 			if self.valid_address:
-				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 255, 255, 10%)')
+				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 255, 255, 15%)')
 			else:
 				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 0, 0, 15%)')
 		elif obj == self.hInputUrl:
 			if obj.text() == '' or obj.text()[0:7] != 'http://':
 				obj.setText('http://')
 		return
-		
+	
+	#checkbox clicking processing
 	def checkbox_proc(self):
 		obj = self.sender()
 		if obj == self.hCheckboxStartup:
@@ -993,6 +1062,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		with open("Wallet.ini", "w") as configfile:
 			config.write(configfile)
 	
+	#function to blink (show and hide in loop) controls
 	def controlBlink(self, times = 5, delay = 0.1):
 		threading.Timer(0, self.blinkProc, args=[times, delay]).start()
 		
@@ -1006,6 +1076,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			if not self.valid_address: self.hLabelAddressErr.show()
 			sleep(delay)
 	
+	#network status update 
 	def XiNetworkUpdate(self):
 		nodeInfo = self.GetNodeInfo()
 		self.nodeSync = nodeInfo.json['result']['height']
@@ -1013,6 +1084,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		diff = nodeInfo.json['result']['difficulty']
 		self.hLabelNetworkDiff.setText("Network diff: " + str(diff))
 		diff = math.floor(diff / 120)
+		#hashrate formatting
 		if diff < 1000000000:
 			diff = str('%.2f' % (diff / 1000000)) + " MH/s"
 		else: 
@@ -1023,6 +1095,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					diff = str(diff) + " H/s"
 		self.hLabelNetworkHashrate.setText("Network hashrate: " + str(diff))
 		walletInfo = GetWalletBalance()
+		#locked and unlocked balance calculations
 		self.walletBalance = walletInfo['result']['unlocked_balance'] / 1000000000
 		self.walletBalanceLocked = (walletInfo['result']['balance'] / 1000000000) - self.walletBalance
 		if self.walletBalanceLocked < 0:
@@ -1035,21 +1108,24 @@ If you enjoy the program you can support me by donating some MRL using button be
 				self.XiNetworkSetState(2)
 		else:
 			self.XiNetworkSetState(0)
-	
+	#magic background thread
 	def NetworkThread(self):
 		global daemon_url
 		if '--offline' in app.arguments():
 			print('INFO: Running wallet in offline mode')
 			self.runOffline()
 		else:
+			#That shit is useless, will delete later
 			if int(config['wallet']['autohide']):
 				print('INFO: Hiding window to tray')
 				self.tray_icon.showMessage('Info', 'Wallet hidden to tray', msecs=3000)
 			else:
 				self.hShow.click()
 			daemon = False
+			#killing morelod process if exists
 			if ProcessExists("morelod"):
 				ProcessClose("morelod")
+			#checking connection with external node if is choosen
 			if config['wallet']['connection'] != 'local':
 				print('INFO: Connecting to', config['wallet']['url'] + '...')
 				if self.WaitForDaemon():
@@ -1057,20 +1133,24 @@ If you enjoy the program you can support me by donating some MRL using button be
 				else:
 					print('ERROR: Unable connect to external node')
 					daemon_url = 'http://127.0.0.1:38422'
+			#starting local node and waiting for connection
 			if not daemon:
 				print('INFO: Starting local node...')
-				self.xi_daemon = Popen("morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", creationflags = CREATE_NO_WINDOW)
+				self.xi_daemon = Popen("morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE)#, creationflags = CREATE_NO_WINDOW)
 				if self.WaitForDaemon():
 					daemon = True
 				else:
 					print('ERROR: Unable connect to local node')
+			#closing wallet if something was fucking wrong with connection
 			if not daemon:
 				print('ERROR: No connection to daemon, closing wallet...')
 				sleep(2.5)
 				self.close()
 				return
 			else:
+				#checking wallet in config exists or is not configured
 				if not pathlib.Path(config['wallet']['path']).is_file():
+					#if no show open / create / restore wallet buttons
 					print('ERROR: Wallet file not found')
 					self.hButtonCreate.show()
 					self.hButtonOpen.show()
@@ -1079,29 +1159,38 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.hLabelInit.hide()
 					if int(config['wallet']['autohide']): self.hShow.click()
 				else:
+					#if yes we going further
 					print('INFO: Wallet file found')
-					self.pipe = 'walletRPC'
-			while self.running:
+					self.pipe = 'walletrpc'
+			#magic here
+			#\/ this loop for logout and re logging feature
+			while True:
+				#\/ this loop waiting for user choice if any wallet doesnt exist or we logout
 				while True:
+					#closing background thread
 					if not self.running:
 						return
-					if self.pipe == 'walletRPC':
+					#we going to run wallet rpc
+					if self.pipe == 'walletrpc':
 						break
+					#user wants to make new wallet
 					elif self.pipe == 'newwallet':
 						self.hLabelInit.show()
 						#Generate new wallet
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						new_wallet_process = Popen('morelo-wallet-rpc --wallet-dir . --rpc-bind-port 38411 --disable-rpc-login', creationflags = CREATE_NO_WINDOW)
+						new_wallet_process = Popen('morelo-wallet-rpc --wallet-dir . --rpc-bind-port 384420 --disable-rpc-login', stdout=PIPE)#, creationflags = CREATE_NO_WINDOW)
 						while True:
 							try:
-								respond = requests.post('http://127.0.0.1:38411/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
+								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
 							except:
 								pass
 							if respond.status_code == 200:
 								break
+						#close wallet-rpc after generating wallet
 						new_wallet_process.terminate()
+						#update wallet config
 						with open("Wallet.ini", "w") as configfile:
 							config.write(configfile)
 						break
@@ -1110,15 +1199,19 @@ If you enjoy the program you can support me by donating some MRL using button be
 				#wallet-rpc initializing
 				if ProcessExists("morelo-wallet-rpc"):
 					ProcessClose("morelo-wallet-rpc")
+				#new wallet is generated
 				if self.pwd == -1:
 					print('INFO: Starting wallet-rpc (New wallet generated)')
 				else:
 					print('INFO: Starting wallet-rpc (Checking that have password)')
+				#next magic loop
 				while True:
 					result = self.WaitForWalletRPC()
+					#password is good or wallet doesnt have password
 					if result == 'ok':
 						self.pipe = False
 						break
+					#wallet have password
 					elif result == 'requirepassword':
 						self.hLabelInit.hide()
 						self.hLabelPass.show()
@@ -1127,6 +1220,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.pipe = False
 						while self.pipe != 'postpassword':
 							sleep(0.05)
+					#user enter wrong password
 					elif result == 'wrongpassword':
 						print('ERROR: Wrong password')
 						self.hLabelPassWrong.show()
@@ -1141,11 +1235,15 @@ If you enjoy the program you can support me by donating some MRL using button be
 					print('INFO: Wallet started (No password)')
 				else:
 					print('INFO: Wallet started (Password is correct)')
+				#read wallet address
 				walletAddresses = GetWalletAddress()
+				self.GetWalletKeys()
+				#i dont remember why this shit exist here but leave that
 				if walletAddresses:
 					self.wallet_address = walletAddresses['result']['address']
 				self.UpdateWalletAddress()
 				self.UpdateBalance()
+				#hide some controls and show other
 				self.hLabelInit.hide()
 				self.hLabelLogo.hide()
 				self.hButtonCreate.hide()
@@ -1158,8 +1256,10 @@ If you enjoy the program you can support me by donating some MRL using button be
 				for ctrl in self.tabsControls[self.hButtonSend.objectName()]:
 					ctrl.show()
 				if not noQR:
+					#generate QrCode for our wallet address
 					self.UpdateQrCode()
-				while self.running:
+				#main networking and notifications loop
+				while self.running and self.pipe != 'logout':
 					try:
 						item = self.notQueue.get(False)
 						if not int(config['wallet']['disablenotifications']): self.tray_icon.showMessage('New transaction', item[0] + '\nNew transaction found\nTx hash (' + item[1] + ')\nAmount: ' + item[2], msecs=2500)
@@ -1169,17 +1269,26 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.UpdateBalance()
 					self.UpdateTransactions()
 					sleep(2.5)
-					
+				#finally the end of this fucking loops magic
+				
+	def BinStdRead(self):
+		while self.walletRPC.poll() is None:
+			self.walletRPC.stdout.readline()
+			
+	#running wallet rpc and waiting for his respond
 	def WaitForWalletRPC(self):
+		#addressand port parsing
 		url = daemon_url[7:].split(':')
 		addr = url[0]
 		port = url[1]
-		self.walletRPC = Popen('morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38411 --disable-rpc-login --log-level 1', stdout=PIPE, creationflags = CREATE_NO_WINDOW)
+		#running wallet rpc
+		self.walletRPC = Popen('morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1', stdout=PIPE)#, creationflags = CREATE_NO_WINDOW)
+		threading.Timer(0, self.BinStdRead).start()
 		walletRPC = False
+		#waiting for respond or crash
 		while self.walletRPC.poll() is None:
-			rpc = GetWalletAddress()
-			self.walletRPC.stdout.readline()
-			if rpc:
+			rpc = GetWalletBalance()
+			if rpc != -1:
 				walletRPC = True
 				break
 		if not walletRPC:
@@ -1192,6 +1301,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 		else:
 			return 'ok'
 
+	#running wallet in offline mode, it's not offline in meaning of without networking but only for GUI debbuging
+	#i will delete that later on stable releases
 	def runOffline(self):
 		for ctrl in self.tabsControls['leftpanel']:
 			ctrl.show()
@@ -1217,30 +1328,35 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def hideWindow(self):
 		self.hide()
 	
+	#add transaction to table
 	def AddTx(self, col0, col1, col2):
 		self.hTableTransactions.insertRow(0)
 		self.hTableTransactions.setItem(0, 0, QTableWidgetItem(col0))
 		self.hTableTransactions.setItem(0, 1, QTableWidgetItem(col1))
 		self.hTableTransactions.setItem(0, 2, QTableWidgetItem(col2))
-		
+	
+	#sort table
 	def SortTx(self):
 		self.hTableTransactions.sortItems(0, Qt.DescendingOrder)
 	
+	#read transactions from wallet then add them to table, scan and add incoming transactions to table
 	def UpdateTransactions(self):
-		response = json.loads(requests.post('http://127.0.0.1:38411/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_height"}', headers={'Content-Type':'application/json'}).text)
+		response = json.loads(requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_height"}', headers={'Content-Type':'application/json'}).text)
+		#checking wallet rpc is synced with daemon
 		if response['result']['height'] != self.networkSync:
 			return
-		#sprawdzanie czy node sync jest równy syncowi rpc walleta
 		transactions = []
 		fullScan = False
-		#Update transaction table
+		#checking is there new network height
 		if self.networkSync and self.networkSync > 1 and self.lastScan != self.networkSync and not self.scanning:
 			self.scanning = True
 			if self.lastScan < 2:
+				#wallet just started so we need full wallet scan
 				print('INFO: Full tx list request')
 				fullScan = True
 				transactions = GetWalletTransactions(1, self.networkSync)
 				self.lastScan = self.networkSync
+			#new network height so we scanning new range for incoming transactions
 			elif self.networkSync - self.lastScan > 0:
 				print('INFO: Partial tx list request, blocks from', self.lastScan, ' to ', self.networkSync)
 				transactions =  GetWalletTransactions(self.lastScan - 1, self.networkSync - self.lastScan) 
@@ -1248,6 +1364,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			else:
 				self.scanning = False
 				return
+			#any transactions for our wallet?
 			if len(transactions):
 				#Get transactions hashes list
 				for transaction in transactions:
@@ -1261,6 +1378,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					if not fullScan and tx_info['result']['transfer']['type'] == 'in':
 						print('New transaction found! Amount:' + str(amount) + ' (' + transaction + ')')
 						self.IncomingTx(transaction, str(amount), str(date))
+				#sort table
 				self.sortTx.emit()
 				print('INFO: ', len(transactions), 'transactions added to table')
 			else:
@@ -1273,6 +1391,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def UpdateBalance(self):
 		self.hLabelBalanceValue.setText('%.6f' % self.walletBalance)
 		self.hLabelBalanceLockedValue.setText('%.6f' % self.walletBalanceLocked)
+		
+	def UpdateKeys(self):
+		a = 'sratatata do dokonczenia'
 
 style = '''
 			QHeaderView::section {
@@ -1283,7 +1404,7 @@ style = '''
 				font-weight: bold;
 			}
 			QHeaderView {
-				background: rgba(255, 255, 255, 10%);
+				background: rgba(255, 255, 255, 15%);
 			}
 			QHeaderView::section:checked
 			{
@@ -1301,11 +1422,11 @@ style = '''
 			QTableWidget::item {
 				width
 				border-left: 1px solid rgba(230, 140, 0);
-				background: rgba(255, 255, 255, 10%);
+				background: rgba(255, 255, 255, 15%);
 			}	
 			QTableWidget::item:focus {
 				border-left: 1px solid rgb(230, 140, 0);
-				background: rgba(255, 255, 255, 10%);
+				background: rgba(255, 255, 255, 15%);
 				color: rgb(230, 140, 0);
 			}	
 			QCheckBox {
@@ -1343,9 +1464,11 @@ if __name__ == '__main__':
 			config['wallet'] = {'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'autostart' : 0, 'autohide' : 0, 'disablenotifications' : 0}
 			config.write(configfile)
 			print('INFO: Config saved')
+	#reading config file
 	config.read("Wallet.ini")
 	daemon_url = config['wallet']['url']
 	if not '--offline' in sys.argv:
+		#check morelo binaries exists
 		pathwalletRPC = 'morelo-wallet-rpc.exe' if os.name == 'nt' else 'morelo-wallet-rpc'
 		pathDaemon = 'morelod.exe' if os.name == 'nt' else 'morelod'
 		if not pathlib.Path(pathwalletRPC).is_file() or not pathlib.Path(pathDaemon).is_file():
