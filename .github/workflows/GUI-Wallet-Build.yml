@@ -46,7 +46,7 @@ jobs:
     - name: Upload compiled binary for MacOS
       uses: actions/upload-artifact@v1
       with:
-        name: Windows binary
+        name: MacOS Binary
         path: dist/MRL-GUI-Wallet
 
   build-ubuntu:
@@ -69,5 +69,5 @@ jobs:
     - name: Upload compiled binary for ubuntu
       uses: actions/upload-artifact@v1
       with:
-        name: Windows binary
+        name: Ubuntu Binary
         path: dist/MRL-GUI-Wallet
