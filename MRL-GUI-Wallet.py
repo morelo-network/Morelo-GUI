@@ -619,19 +619,15 @@ If you enjoy the program you can support me by donating some MRL using button be
 	
 	def GetWalletKeys(self):
 		try:
-			
 			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
 			self.wallet_keys['view'] = response['result']['key']
 			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
-			self.wallet_keys['spend'] = response['result']['key']
-			
+			self.wallet_keys['spend'] = response['result']['key']		
 			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"mnemonic"}}', headers={'Content-Type':'application/json'})
-			print(response.text)
 			response = json.loads(response.text)
 			self.wallet_keys['seed'] = response['result']['key']
-			print(self.wallet_keys)
 		except:
 			print("ERROR: Can't read wallet keys")
 	
@@ -701,8 +697,54 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.QrAddress.setPixmap(qt_pixmap)
 
 	class GUICtrlCreateDropDown():
-		def __init__(self, items, parent):
-			print(parent.title)
+		def __init__(self, parent, posX, posY, sizeX, sizeY, items, parser):
+			super().__init__()
+			
+			self.expanded = False
+			self.items = items
+			
+			self.hLabelSelection = parent.GUICtrlCreateInput(str(items[0]), posX, posY, sizeX - sizeY, sizeY)
+			self.hLabelSelection.setReadOnly(True)
+			
+			self.hButtonSelect = parent.GUICtrlCreateButton('▼', posX + sizeX - sizeY, posY, sizeY, sizeY)
+			self.hButtonSelect.clicked.connect(self.toggle)
+			
+			for item in range(len(self.items)):
+				self.items[item] = parent.GUICtrlCreateButton(str(self.items[item]), posX, posY + sizeY + (sizeY * item), sizeX, sizeY, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
+				self.items[item].hide()
+				self.items[item].clicked.connect(parser)
+				self.items[item].clicked.connect(lambda *args, item=item: self.select(items[item].text()))
+		
+		def select(self, item):
+			self.hLabelSelection.setText(item)
+			self.toggle()
+		
+		def toggle(self):
+			if self.expanded:
+				for item in self.items:
+					item.hide()
+				GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 15%)')
+				GUICtrlSetColor(self.hButtonSelect, 'rgb(230, 140, 0)')
+				self.hButtonSelect.setText('▼')
+			else:
+				for item in self.items:
+					item.show()
+				GUICtrlSetBkColor(self.hButtonSelect, 'rgba(230, 140, 0, 50%)')
+				GUICtrlSetColor(self.hButtonSelect, 'white')
+				self.hButtonSelect.setText('▲')
+			self.expanded = not self.expanded
+			
+		def hide(self):
+			for item in self.items:
+				item.hide()
+			self.hButtonSelect.hide()
+			self.hLabelSelection.hide()
+			self.expanded = False
+			
+		def show(self):
+			self.hButtonSelect.show()
+			self.hLabelSelection.show()
+			self.expanded = True
 	
 	#custom button creating function
 	def GUICtrlCreateButton(self, text, left, top, width = 0, height = 0, background = 0, color = 0, fontsize = 0, fontweight = 0):
@@ -807,7 +849,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 				item.hide()
 			GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 15%)')
-			GUICtrlSetColor(self.hButtonSelect, 'rgb(26, 188, 156)')
+			GUICtrlSetColor(self.hButtonSelect, 'rgb(230, 140, 0)')
 			self.hButtonSelect.setText('▼')
 			self.netSelect = False
 			if self.netChanged:
@@ -1136,7 +1178,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			#starting local node and waiting for connection
 			if not daemon:
 				print('INFO: Starting local node...')
-				self.xi_daemon = Popen("./morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+				self.xi_daemon = Popen("morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
 				if self.WaitForDaemon():
 					daemon = True
 				else:
@@ -1180,14 +1222,14 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						new_wallet_process = Popen('./morelo-wallet-rpc --wallet-dir . --rpc-bind-port 384420 --disable-rpc-login', stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+						new_wallet_process = Popen('morelo-wallet-rpc --wallet-dir . --rpc-bind-port 384420 --disable-rpc-login', stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
 						while True:
 							try:
 								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
+								if respond.status_code == 200:
+									break
 							except:
 								pass
-							if respond.status_code == 200:
-								break
 						#close wallet-rpc after generating wallet
 						new_wallet_process.terminate()
 						#update wallet config
@@ -1282,7 +1324,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		addr = url[0]
 		port = url[1]
 		#running wallet rpc
-		self.walletRPC = Popen('./morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'] , stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+		self.walletRPC = Popen('morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'] , stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
 		threading.Timer(0, self.BinStdRead).start()
 		walletRPC = False
 		#waiting for respond or crash
