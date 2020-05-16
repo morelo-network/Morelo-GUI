@@ -1,3 +1,4 @@
+import version
 missingLibs = False
 try:
 	import math
@@ -291,7 +292,7 @@ class App(QWidget):
 	def __init__(self):
 		#initial values for some variables
 		super().__init__()
-		self.title = 'Morelo GUI Wallet'
+		self.title = 'Morelo GUI Wallet v' + version.version
 		self.width = 800
 		self.height = 470
 		self.ctrlCount = 0
@@ -541,7 +542,7 @@ class App(QWidget):
 		self.hTableTransactions.horizontalHeader().resizeSection(2, 163)
 		self.tabsControls[self.hButtonHistory.objectName()] = [self.hTableTransactions]
 		#About TAB
-		self.hLabelAbout = self.GUICtrlCreateLabel('''Morelo GUI Wallet v1.0
+		self.hLabelAbout = self.GUICtrlCreateLabel('''Morelo GUI Wallet v''' + version.version + '''
 
 Author: MrKris7100
 
