@@ -510,19 +510,7 @@ class App(QWidget):
 		self.hLabelSelInfo = self.GUICtrlCreateLabel('Changes requiring restart', 215, 205, 130, 20, 0, '#b53b3b')
 		self.hLabelSelInfo.hide()
 		
-		self.hLabelSelection = self.GUICtrlCreateInput('', 215, 175, 150, 30)
-		self.hLabelSelection.setReadOnly(True)
-
-		self.hButtonSelect = self.GUICtrlCreateButton('▼', 365, 175, 30, 30)
-		
-		self.hButtonSelectLocal = self.GUICtrlCreateButton('Run local node', 215, 205, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
-		self.hButtonSelectLocal.hide()
-		self.hButtonSelectPublic1 = self.GUICtrlCreateButton('Use public node #1', 215, 235, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
-		self.hButtonSelectPublic1.hide()
-		self.hButtonSelectPublic2 = self.GUICtrlCreateButton('Use public node #2', 215, 265, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
-		self.hButtonSelectPublic2.hide()
-		self.hButtonSelectManual = self.GUICtrlCreateButton('Use custom node', 215, 295, 180, 30, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 7px')
-		self.hButtonSelectManual.hide()
+		self.hDropDownNode = self.GUICtrlCreateDropDown(self, 215, 175, 180, 30, ['Run local node', 'Use public node #1', 'Use public node #2', 'Use custom node'], self.SelectNode)
 		
 		self.hLabelUrl = self.GUICtrlCreateLabel('Custom node address', 450, 160)
 		self.hLabelUrl.hide()
@@ -536,10 +524,9 @@ class App(QWidget):
 		self.hInputUrlPort.hide()
 		
 		#grouping controls
-		self.tabsControls[self.hButtonSettings.objectName()] = [self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
+		self.tabsControls[self.hButtonSettings.objectName()] = [self.hDropDownNode, self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
 		self.hCheckboxStartup, self.hCheckboxStartupBk, self.hCheckboxText, self.hCheckboxTrayClose, 
-		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText, self.hLabelNode, 
-		self.hLabelSelection, self.hButtonSelect]
+		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText, self.hLabelNode]
 		
 		#Transactions TAB
 		self.hTableTransactions = QTableWidget(0, 3, self)
@@ -578,13 +565,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 			ctrl.hide()
 		#checking connection type in config	
 		if config['wallet']['connection'] == 'local':
-			self.hLabelSelection.setText('Run local node')
+			self.hDropDownNode.hLabelSelection.setText('Run local node')
 		elif config['wallet']['connection'] == 'ext1':
-			self.hLabelSelection.setText('Use public node #1')
+			self.hDropDownNode.hLabelSelection.setText('Use public node #1')
 		elif config['wallet']['connection'] == 'ext2':
-			self.hLabelSelection.setText('Use public node #2')
+			self.hDropDownNode.hLabelSelection.setText('Use public node #2')
 		elif config['wallet']['connection'] == 'custom':
-			self.hLabelSelection.setText('Use custom node')
+			self.hDropDownNode.hLabelSelection.setText('Use custom node')
 		url = config['wallet']['url'].split(':')
 		self.hInputUrl.setText(url[0] + ':' + url[1])
 		self.hInputUrlPort.setText(url[2])
@@ -733,18 +720,17 @@ If you enjoy the program you can support me by donating some MRL using button be
 				GUICtrlSetColor(self.hButtonSelect, 'white')
 				self.hButtonSelect.setText('▲')
 			self.expanded = not self.expanded
-			
 		def hide(self):
 			for item in self.items:
 				item.hide()
 			self.hButtonSelect.hide()
 			self.hLabelSelection.hide()
-			self.expanded = False
+			self.expanded = True
+			self.toggle()
 			
 		def show(self):
 			self.hButtonSelect.show()
 			self.hLabelSelection.show()
-			self.expanded = True
 	
 	#custom button creating function
 	def GUICtrlCreateButton(self, text, left, top, width = 0, height = 0, background = 0, color = 0, fontsize = 0, fontweight = 0):
@@ -842,6 +828,10 @@ If you enjoy the program you can support me by donating some MRL using button be
 		elif iState == 1:
 			self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % iPercent + "%)")
 	
+	#node type selection
+	def SelectNode(self):
+		print(self.sender())
+	
 	#buttons event processing function
 	def button_proc(self):
 		obj = self.sender()
@@ -879,6 +869,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					ctrl.show()
 				self.activeTab = obj
 			else:
+				'''
 				#custom dropdown menu
 				if obj in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
 					lastSetting = config['wallet']['connection']
@@ -925,8 +916,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.netSelect = True
 						self.hButtonSelect.setText('▲')
 						self.hLabelSelInfo.hide()
+				'''
 				#logout button
-				elif obj == self.hButtonLogout:
+				if obj == self.hButtonLogout:
 					print("INFO: Log Out")
 					for ctrl in self.tabsControls['leftpanel']:
 						ctrl.hide()
@@ -1178,7 +1170,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			#starting local node and waiting for connection
 			if not daemon:
 				print('INFO: Starting local node...')
-				self.xi_daemon = Popen("morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+				self.xi_daemon = Popen("morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE, shell=True, cwd=os.getcwd())#, creationflags = CREATE_NO_WINDOW)
 				if self.WaitForDaemon():
 					daemon = True
 				else:
@@ -1222,7 +1214,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						new_wallet_process = Popen('morelo-wallet-rpc --wallet-dir . --rpc-bind-port 384420 --disable-rpc-login', stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+						new_wallet_process = Popen('morelo-wallet-rpc --wallet-dir . --rpc-bind-port 384420 --disable-rpc-login', stdout=PIPE, shell=True, cwd=os.getcwd())#, creationflags = CREATE_NO_WINDOW)
 						while True:
 							try:
 								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
@@ -1324,7 +1316,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		addr = url[0]
 		port = url[1]
 		#running wallet rpc
-		self.walletRPC = Popen('morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'] , stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+		self.walletRPC = Popen('morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'] , stdout=PIPE, shell=True, cwd=os.getcwd())#, creationflags = CREATE_NO_WINDOW)
 		threading.Timer(0, self.BinStdRead).start()
 		walletRPC = False
 		#waiting for respond or crash
