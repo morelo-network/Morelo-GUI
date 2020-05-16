@@ -1170,7 +1170,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			#starting local node and waiting for connection
 			if not daemon:
 				print('INFO: Starting local node...')
-				self.xi_daemon = Popen("morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE, shell=True, cwd=os.getcwd())#, creationflags = CREATE_NO_WINDOW)
+				self.xi_daemon = Popen(os.getcwd() + "/morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
 				if self.WaitForDaemon():
 					daemon = True
 				else:
@@ -1214,7 +1214,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						new_wallet_process = Popen('morelo-wallet-rpc --wallet-dir . --rpc-bind-port 384420 --disable-rpc-login', stdout=PIPE, shell=True, cwd=os.getcwd())#, creationflags = CREATE_NO_WINDOW)
+						new_wallet_process = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir . --rpc-bind-port 38420 --disable-rpc-login',stdout=PIPE,  shell=True)#, creationflags = CREATE_NO_WINDOW)
 						while True:
 							try:
 								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
@@ -1316,7 +1316,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		addr = url[0]
 		port = url[1]
 		#running wallet rpc
-		self.walletRPC = Popen('morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'] , stdout=PIPE, shell=True, cwd=os.getcwd())#, creationflags = CREATE_NO_WINDOW)
+		self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'] , stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
 		threading.Timer(0, self.BinStdRead).start()
 		walletRPC = False
 		#waiting for respond or crash
