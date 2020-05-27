@@ -284,6 +284,14 @@ def GetTransactionInfo(hash):
 	response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"get_transfer_by_txid","params":{"txid":"' + hash + '"}}', headers={'Content-Type':'application/json'})
 	return json.loads(response.text)
 
+class Worker(QRunnable):
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+        self.fn = fn
+
+    @pyqtSlot()
+    def run(self):
+        self.fn()
 #Main window class
 class App(QWidget):
 	addTx = pyqtSignal(str, str, str)
@@ -292,6 +300,7 @@ class App(QWidget):
 	def __init__(self):
 		#initial values for some variables
 		super().__init__()
+		self.threadpool = QThreadPool()
 		self.title = 'Morelo GUI Wallet v' + version.version
 		self.width = 800
 		self.height = 470
@@ -353,10 +362,6 @@ class App(QWidget):
 		self.setWindowTitle(self.title)
 		self.setFixedSize(self.width, self.height)
 		self.tabsControls = {}
-
-		#some shitty comunication
-		self.hShow = self.GUICtrlCreateButton('', 0, 0)
-		self.hOffline = self.GUICtrlCreateButton('', 0, 0)
 		
 		#Image background
 		background = QLabel(self)
@@ -483,29 +488,19 @@ class App(QWidget):
 		self.tabsControls[self.hButtonReceive.objectName()] = [self.hInputWalletAddress, self.hLabelWalletAddress, self.hButtonWalletCopy, self.QrAddress]
 		
 		#Settings TAB
-		self.hCheckboxStartupBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 15, 25, 25)
-		self.hCheckboxStartup = self.GUICtrlCreateCheckBox('', 215, 15)
-		if int(config['wallet']['autostart']):
-			self.hCheckboxStartup.setCheckState(2)
-		self.hCheckboxText = self.GUICtrlCreateLabel('Run at windows startup', 245, 20, 0, 0, 0, 0, '13px')
 		
-		self.hCheckboxTrayCloseBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 45, 25, 25)
-		self.hCheckboxTrayClose = self.GUICtrlCreateCheckBox('', 215, 45)
+		self.hCheckboxTrayCloseBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 15, 25, 25)
+		self.hCheckboxTrayClose = self.GUICtrlCreateCheckBox('', 215, 15)
 		if int(config['wallet']['trayclose']):
 			self.hCheckboxTrayClose.setCheckState(2)
-		self.hCheckboxTrayCloseText = self.GUICtrlCreateLabel('Hide to tray instead of closing', 245, 50, 0, 0, 0, 0, '13px')
+		self.hCheckboxTrayCloseText = self.GUICtrlCreateLabel('Hide to tray instead of closing', 245, 20, 0, 0, 0, 0, '13px')
 		
-		self.hCheckboxAutoHideBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 75, 25, 25)
-		self.hCheckboxAutoHide = self.GUICtrlCreateCheckBox('', 215, 75)
-		if int(config['wallet']['autohide']):
-			self.hCheckboxAutoHide.setCheckState(2)
-		self.hCheckboxAutoHideText = self.GUICtrlCreateLabel('Hide to tray on startup', 245, 80, 0, 0, 0, 0, '13px')
 		
-		self.hCheckboxNotsBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 105, 25, 25)
-		self.hCheckboxNots = self.GUICtrlCreateCheckBox('', 215, 105)
+		self.hCheckboxNotsBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 45, 25, 25)
+		self.hCheckboxNots = self.GUICtrlCreateCheckBox('', 215, 45)
 		if int(config['wallet']['disablenotifications']):
 			self.hCheckboxNots.setCheckState(2)
-		self.hCheckboxNotsText = self.GUICtrlCreateLabel('Disable notifications', 245, 110, 0, 0, 0, 0, '13px')
+		self.hCheckboxNotsText = self.GUICtrlCreateLabel('Disable notifications', 245, 50, 0, 0, 0, 0, '13px')
 		
 		self.hLabelNode = self.GUICtrlCreateLabel('Network connection', 215, 155, 0, 0, 0, 0, '13px')
 		self.hLabelSelInfo = self.GUICtrlCreateLabel('Changes requiring restart', 215, 205, 130, 20, 0, '#b53b3b')
@@ -526,8 +521,8 @@ class App(QWidget):
 		
 		#grouping controls
 		self.tabsControls[self.hButtonSettings.objectName()] = [self.hDropDownNode, self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
-		self.hCheckboxStartup, self.hCheckboxStartupBk, self.hCheckboxText, self.hCheckboxTrayClose, 
-		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hCheckboxAutoHide, self.hCheckboxAutoHideBk, self.hCheckboxAutoHideText, self.hLabelNode]
+		self.hCheckboxTrayClose, 
+		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hLabelNode]
 		
 		#Transactions TAB
 		self.hTableTransactions = QTableWidget(0, 3, self)
@@ -601,9 +596,10 @@ If you enjoy the program you can support me by donating some MRL using button be
 		for ctrl in self.tabsControls[self.hButtonSend.objectName()]:
 			ctrl.hide()
 		self.tray_icon.show()
+		self.show()
 		#Wallet initialization (background thread)
-		self.timer = threading.Timer(0, self.NetworkThread)
-		self.timer.start()
+		thread = Worker(self.NetworkThread)
+		self.threadpool.start(thread) 
 	
 	def GetWalletKeys(self):
 		try:
@@ -936,8 +932,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 						requests.post('http://127.0.0.1:38420/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 					except:
 						pass
-				elif obj == self.hOffline:
-					self.runOffline()
 				#submit password (On wallet opening)
 				elif obj == self.hButtonPass:
 					self.hLabelInit.show()
@@ -960,8 +954,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 				elif obj == self.hButtonPassSet:
 					self.pwd = self.hInputPass.text()
 					self.pipe = 'newwallet'
-				elif obj == self.hShow:
-					self.showWindow()
 				#Donate button
 				elif obj == self.hButtonDonate:
 					self.hInputAddress.setText(donate_address)
@@ -1085,12 +1077,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 	#checkbox clicking processing
 	def checkbox_proc(self):
 		obj = self.sender()
-		if obj == self.hCheckboxStartup:
-			config['wallet']['autostart'] = str(int(obj.isChecked()))
-		elif obj == self.hCheckboxTrayClose:
+		if obj == self.hCheckboxTrayClose:
 			config['wallet']['trayclose'] = str(int(obj.isChecked()))
-		elif obj == self.hCheckboxAutoHide:
-			config['wallet']['autohide'] = str(int(obj.isChecked()))
 		elif obj == self.hCheckboxNots:
 			config['wallet']['disablenotifications'] = str(int(obj.isChecked()))
 		#Update config file
@@ -1150,12 +1138,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 			print('INFO: Running wallet in offline mode')
 			self.runOffline()
 		else:
-			#That shit is useless, will delete later
-			if int(config['wallet']['autohide']):
-				print('INFO: Hiding window to tray')
-				self.tray_icon.showMessage('Info', 'Wallet hidden to tray', msecs=3000)
-			else:
-				self.hShow.click()
 			daemon = False
 			#killing morelod process if exists
 			if ProcessExists("morelod"):
@@ -1192,7 +1174,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.hButtonRestore.show()
 					self.hLabelTip.show()
 					self.hLabelInit.hide()
-					if int(config['wallet']['autohide']): self.hShow.click()
 				else:
 					#if yes we going further
 					print('INFO: Wallet file found')
@@ -1355,10 +1336,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hLabelTip.hide()
 		date = datetime.datetime.fromtimestamp(1576705196)
 		self.addTx.emit(str(date), '4437459bac024c7ce3fc0ecf63ef482466fd19141f46709c1cd640aeb6c20e27', str(1.234000))
-		self.hShow.click()
-
-	def showWindow(self):
-		self.show()
 	
 	def hideWindow(self):
 		self.hide()
@@ -1496,7 +1473,7 @@ if __name__ == '__main__':
 		print('INFO: No wallet config, generate new config file')
 		newwallet = True
 		with open("Wallet.ini", "w") as configfile:
-			config['wallet'] = {'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'autostart' : 0, 'autohide' : 0, 'disablenotifications' : 0}
+			config['wallet'] = {'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
 			config.write(configfile)
 			print('INFO: Config saved')
 	#reading config file
@@ -1512,6 +1489,7 @@ if __name__ == '__main__':
 			sys.exit()
 	app = QApplication(sys.argv)
 	app.setStyleSheet(style)
-	ex = App()
 	print('INFO: Running main window')
+	ex = App()
+	#GUI main thread
 	sys.exit(app.exec_())
