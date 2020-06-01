@@ -292,6 +292,7 @@ class Worker(QRunnable):
     @pyqtSlot()
     def run(self):
         self.fn()
+		
 #Main window class
 class App(QWidget):
 	addTx = pyqtSignal(str, str, str)
@@ -305,7 +306,6 @@ class App(QWidget):
 		self.width = 800
 		self.height = 470
 		self.ctrlCount = 0
-		self.notifications = 0
 		self.walletRPC = 0
 		self.xi_daemon = 0
 		self.XiNetworkState, self.walletBalance, self.walletBalanceLocked = 0, 0, 0
@@ -320,7 +320,6 @@ class App(QWidget):
 		self.notQueue = queue.Queue()
 		self.walletRPC_initialized = False
 		self.running = True
-		self.timer = False
 		self.pwd = ''
 		self.scanning = False
 		self.netSelect = False
@@ -348,11 +347,9 @@ class App(QWidget):
 					pass
 				#close daemon
 				if self.xi_daemon: self.xi_daemon.terminate()
-			#close background thread
-			if self.timer: self.timer.cancel()
-			if self.notifications: self.notifications = False
 			#destroy tray icon
 			self.tray_icon.hide()
+			#close background thread
 			self.running = False
 			event.accept()
 	
@@ -491,15 +488,15 @@ class App(QWidget):
 		
 		self.hCheckboxTrayCloseBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 15, 25, 25)
 		self.hCheckboxTrayClose = self.GUICtrlCreateCheckBox('', 215, 15)
-		if int(config['wallet']['trayclose']):
-			self.hCheckboxTrayClose.setCheckState(2)
 		self.hCheckboxTrayCloseText = self.GUICtrlCreateLabel('Hide to tray instead of closing', 245, 20, 0, 0, 0, 0, '13px')
-		
 		
 		self.hCheckboxNotsBk = self.GUICtrlCreateBox('rgba(255, 255, 255, 15%)', 215, 45, 25, 25)
 		self.hCheckboxNots = self.GUICtrlCreateCheckBox('', 215, 45)
-		if int(config['wallet']['disablenotifications']):
-			self.hCheckboxNots.setCheckState(2)
+		if 'wallet' in config:
+			if int(config['wallet']['trayclose']):
+				self.hCheckboxTrayClose.setCheckState(2)
+			if int(config['wallet']['disablenotifications']):
+				self.hCheckboxNots.setCheckState(2)
 		self.hCheckboxNotsText = self.GUICtrlCreateLabel('Disable notifications', 245, 50, 0, 0, 0, 0, '13px')
 		
 		self.hLabelNode = self.GUICtrlCreateLabel('Network connection', 215, 155, 0, 0, 0, 0, '13px')
@@ -549,6 +546,15 @@ This program uses 3rd party applications: morelod and morelo-wallet-rpc from Mor
 If you enjoy the program you can support me by donating some MRL using button below.''', 215, 15, 0, 0, 0, 0, '11px')
 		self.hButtonDonate = self.GUICtrlCreateButton('Donate', 215, 150, 75, 30)
 		
+		#Init config controls
+		self.hLabelNodeType = self.GUICtrlCreateLabel('Please select preferred type of connection to the network', 250, 175, 0, 0, '13px')
+		self.hLabelPath = self.GUICtrlCreateLabel('Please select working directory for wallet', 270, 120)
+		self.hInputPath = self.GUICtrlCreateInput(str(pathlib.Path.home()), 250, 140, 200, 30)
+		self.hInputPath.setReadOnly(True)
+		self.hButtonBrowse = self.GUICtrlCreateButton('Browse', 455, 140, 60, 30)
+		self.tabsControls['initconfig'] = [self.hLabelNodeType, self.hLabelPath, self.hInputPath, self.hButtonBrowse,
+		self.hDropDownNode]
+		
 		self.tabsControls[self.hButtonAbout.objectName()] = [self.hLabelAbout, self.hButtonDonate]
 		#hiding controls
 		for ctrl in self.tabsControls[self.hButtonAbout.objectName()]:
@@ -559,6 +565,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 			ctrl.hide()
 		for ctrl in self.tabsControls[self.hButtonHistory.objectName()]:
 			ctrl.hide()
+		for ctrl in self.tabsControls['initconfig']:
+			ctrl.hide()
+		'''
 		#checking connection type in config	
 		if config['wallet']['connection'] == 'local':
 			self.hDropDownNode.hLabelSelection.setText('Run local node')
@@ -571,6 +580,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		url = config['wallet']['url'].split(':')
 		self.hInputUrl.setText(url[0] + ':' + url[1])
 		self.hInputUrlPort.setText(url[2])
+		'''
 		
 		# Create tray menu
 		self.tray_menu = QMenu()
@@ -587,8 +597,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.tray_icon.setContextMenu(self.tray_menu)
 		self.tray_icon.activated.connect(self.tray_event)
 		#Set window and tray icon
-		self.tray_icon.setIcon(QIcon("morelo.ico"))
-		self.setWindowIcon(QIcon("morelo.ico"))
+		self.tray_icon.setIcon(QIcon("./morelo.ico"))
+		self.setWindowIcon(QIcon("./morelo.ico"))
 		
 		#hiding left panel
 		for ctrl in self.tabsControls['leftpanel']:
@@ -686,6 +696,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 			
 			self.expanded = False
 			self.items = items
+			self.sizeX = sizeX
+			self.sizeY = sizeY
 			
 			self.hLabelSelection = parent.GUICtrlCreateInput(str(items[0]), posX, posY, sizeX - sizeY, sizeY)
 			self.hLabelSelection.setReadOnly(True)
@@ -698,6 +710,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 				self.items[item].hide()
 				self.items[item].clicked.connect(parser)
 				self.items[item].clicked.connect(lambda *args, item=item: self.select(items[item].text()))
+		
+		def move(self, posX, posY):
+			self.hLabelSelection.move(posX, posY)
+			self.hButtonSelect.move(posX + self.sizeX - self.sizeY, posY)
+			for item in range(len(self.items)):
+				self.items[item].move(posX, posY + self.sizeY + (self.sizeY * item))
+				
 		
 		def select(self, item):
 			self.hLabelSelection.setText(item)
@@ -827,7 +846,30 @@ If you enjoy the program you can support me by donating some MRL using button be
 	
 	#node type selection
 	def SelectNode(self):
-		print(self.sender())
+		obj = self.sender()
+		lastSetting = config['wallet']['connection']
+		if obj == self.hDropDownNode.items[0]:
+			config['wallet']['connection'] = 'local'
+			config['wallet']['url'] = 'http://127.0.0.1:38422'
+		elif obj == self.hDropDownNode.items[1]:
+			config['wallet']['connection'] = 'ext1'
+			config['wallet']['url'] = 'http://'
+		elif obj == self.hDropDownNode.items[2]:
+			config['wallet']['connection'] = 'ext2'
+			config['wallet']['url'] = 'http://'
+		elif obj == self.hDropDownNode.items[3]:
+			config['wallet']['connection'] = 'custom'
+		if lastSetting != config['wallet']['connection']:
+			if config['wallet']['connection'] == 'custom':
+				for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
+					ctrl.show()
+			else:
+				for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
+					ctrl.hide()
+			self.hLabelSelInfo.show()
+			self.netChanged = True
+			with open("Wallet.ini", "w") as configfile:
+				config.write(configfile)
 	
 	#buttons event processing function
 	def button_proc(self):
@@ -866,54 +908,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 					ctrl.show()
 				self.activeTab = obj
 			else:
-				'''
-				#custom dropdown menu
-				if obj in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
-					lastSetting = config['wallet']['connection']
-					if obj == self.hButtonSelectLocal:
-						config['wallet']['connection'] = 'local'
-						self.hLabelSelection.setText('Run local node')
-						config['wallet']['url'] = 'http://127.0.0.1:38422'
-					elif obj == self.hButtonSelectPublic1:
-						config['wallet']['connection'] = 'ext1'
-						config['wallet']['url'] = 'http://'
-						self.hLabelSelection.setText('Use public node #1')
-					elif obj == self.hButtonSelectPublic2:
-						config['wallet']['connection'] = 'ext2'
-						config['wallet']['url'] = 'http://'
-						self.hLabelSelection.setText('Use public node #2')
-					elif obj == self.hButtonSelectManual:
-						config['wallet']['connection'] = 'custom'
-						self.hLabelSelection.setText('Use custom node')
-					if lastSetting != config['wallet']['connection']:
-						if config['wallet']['connection'] == 'custom':
-							for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
-								ctrl.show()
-						else:
-							for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
-								ctrl.hide()
-						self.hLabelSelInfo.show()
-						self.netChanged = True
-						with open("Wallet.ini", "w") as configfile:
-							config.write(configfile)
-				#dropdown menu button
-				if obj == self.hButtonSelect:
-					if self.netSelect:
-						for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
-							item.hide()
-						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 15%)')
-						GUICtrlSetColor(self.hButtonSelect, 'rgb(230, 140, 0)')
-						self.netSelect = False
-						self.hButtonSelect.setText('▼')
-					else:
-						for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
-							item.show()
-						GUICtrlSetBkColor(self.hButtonSelect, 'rgba(230, 140, 0, 50%)')
-						GUICtrlSetColor(self.hButtonSelect, 'white')
-						self.netSelect = True
-						self.hButtonSelect.setText('▲')
-						self.hLabelSelInfo.hide()
-				'''
 				#logout button
 				if obj == self.hButtonLogout:
 					print("INFO: Log Out")
@@ -1134,6 +1128,21 @@ If you enjoy the program you can support me by donating some MRL using button be
 	#magic background thread
 	def NetworkThread(self):
 		global daemon_url
+		while True:
+			#Initial config
+			if not pathlib.Path("Wallet.ini").is_file():
+				print('INFO: No wallet config, initial setup')
+				for ctrl in self.tabsControls['initconfig']:
+					ctrl.show()
+				self.hDropDownNode.move(250, 190)
+				newwallet = True
+				with open("Wallet.ini", "w") as configfile:
+					config['wallet'] = {'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
+					config.write(configfile)
+					print('INFO: Config saved')
+			#reading config file
+			config.read("Wallet.ini")
+			daemon_url = config['wallet']['url']
 		if '--offline' in app.arguments():
 			print('INFO: Running wallet in offline mode')
 			self.runOffline()
@@ -1198,6 +1207,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hButtonPassSet.hide()
 						new_wallet_process = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir . --rpc-bind-port 38420 --disable-rpc-login',stdout=PIPE,  shell=True)#, creationflags = CREATE_NO_WINDOW)
 						while True:
+							if not self.running:
+								return
 							try:
 								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
 								if respond.status_code == 200:
@@ -1222,6 +1233,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 					print('INFO: Starting wallet-rpc (Checking that have password)')
 				#next magic loop
 				while True:
+					if not self.running:
+						return
 					result = self.WaitForWalletRPC()
 					#password is good or wallet doesnt have password
 					if result == 'ok':
@@ -1468,17 +1481,6 @@ style = '''
 if __name__ == '__main__':
 	donate_address = 'enter donate address here'
 	config = configparser.ConfigParser()
-	#Initial config
-	if not pathlib.Path("Wallet.ini").is_file():
-		print('INFO: No wallet config, generate new config file')
-		newwallet = True
-		with open("Wallet.ini", "w") as configfile:
-			config['wallet'] = {'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
-			config.write(configfile)
-			print('INFO: Config saved')
-	#reading config file
-	config.read("Wallet.ini")
-	daemon_url = config['wallet']['url']
 	if not '--offline' in sys.argv:
 		#check morelo binaries exists
 		pathwalletRPC = 'morelo-wallet-rpc.exe' if os.name == 'nt' else 'morelo-wallet-rpc'
