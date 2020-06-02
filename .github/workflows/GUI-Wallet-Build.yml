@@ -19,7 +19,7 @@ jobs:
         pip install pyinstaller psutil pyperclip image PyQt5 qrcode requests
     - name: build with pyinstaller
       run: |
-        pyinstaller --onefile MRL-GUI-Wallet.py --icon=morelo.ico -c --add-data /assets/*;assets --add-data morelo.ico;.
+        pyinstaller --onefile MRL-GUI-Wallet.py --icon=morelo.ico -c --add-data /assets;assets --add-data morelo.ico;.
     - name: Upload compiled binary for windows
       uses: actions/upload-artifact@v1
       with:
@@ -42,7 +42,7 @@ jobs:
         pip install pyinstaller psutil pyperclip image PyQt5 qrcode requests
     - name: build with pyinstaller
       run: |
-        pyinstaller --onefile MRL-GUI-Wallet.py --icon=morelo.ico -c --add-data /assets/*:assets --add-data morelo.ico:.
+        pyinstaller --onefile MRL-GUI-Wallet.py --icon=morelo.ico -c --add-data /assets:assets --add-data morelo.ico:.
     - name: Upload compiled binary for MacOS
       uses: actions/upload-artifact@v1
       with:
@@ -65,7 +65,7 @@ jobs:
         pip install pyinstaller psutil pyperclip image PyQt5 qrcode requests
     - name: build with pyinstaller
       run: |
-        pyinstaller --onefile MRL-GUI-Wallet.py --icon=morelo.ico --add-data /assets/*:assets --add-data morelo.ico:.
+        pyinstaller --onefile MRL-GUI-Wallet.py --icon=morelo.ico --add-data /assets:assets --add-data morelo.ico:.
     - name: Upload compiled binary for ubuntu
       uses: actions/upload-artifact@v1
       with:
