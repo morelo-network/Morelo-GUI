@@ -49,7 +49,7 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install threading')
 	missingLibs = True
 try:
-	from subprocess import run, Popen, PIPE#, CREATE_NO_WINDOW, CREATE_NEW_CONSOLE
+	from subprocess import run, Popen, PIPE
 except:
 	pass
 	print('ERROR: Missing module, try install it by command: python -m pip install subprocess')
@@ -295,7 +295,7 @@ class Worker(QRunnable):
 		
 #Main window class
 class App(QWidget):
-	addTx = pyqtSignal(str, str, str)
+	addTx = pyqtSignal(list)
 	sortTx = pyqtSignal()
 
 	def __init__(self):
@@ -322,8 +322,6 @@ class App(QWidget):
 		self.running = True
 		self.pwd = ''
 		self.scanning = False
-		self.netSelect = False
-		self.netChanged = False
 		self.pipe = 0
 		self.addTx.connect(self.AddTx)
 		self.sortTx.connect(self.SortTx)
@@ -339,6 +337,10 @@ class App(QWidget):
 			event.ignore()
 		else:
 		#if no close wallet
+			#update config
+			with open("Wallet.ini", "w") as configfile:
+				config.write(configfile)
+			#check wallet was launched in offline mode
 			if not '--offline' in app.arguments():
 				try:
 				#send close signal to wallet's rpc
@@ -366,7 +368,8 @@ class App(QWidget):
 		
 		self.hLabelLogo = self.GUICtrlCreateLabel('MORELO', 0, 0, 800, 150, 0, 0, '60px')
 		self.hLabelLogo.setAlignment(Qt.AlignCenter)
-		self.hLabelInit = self.GUICtrlCreateLabel('initializing...', 470, 100, 0, 0, 0, 0, '14px')
+		self.hLabelInit = self.GUICtrlCreateLabel('Initializing...', 470, 100, 0, 0, 0, 0, '14px')
+		self.hLabelInit.hide()
 		#self.hLabelCopyrights = self.GUICtrlCreateLabel('All rights reserved © 2019-2020 MrKris7100', 520, 450, 0, 0, 0, 0, '12px')
 		self.hLabelTip = self.GUICtrlCreateLabel('What you want to do?', 250, 320, 300, 0, 0, 0, '14px')
 		self.hLabelTip.setAlignment(Qt.AlignCenter)
@@ -516,8 +519,30 @@ class App(QWidget):
 		self.hInputUrlPort.setValidator(QIntValidator(1, 65535))
 		self.hInputUrlPort.hide()
 		
+		self.hLabelKeys = self.GUICtrlCreateLabel('Wallet keys and seed', 215, 75, 0, 0, '13px')
+		self.hButtonKeys = self.GUICtrlCreateButton('Show', 215, 95, 50, 30)
+		
+		#Keys controls
+		self.hInputSpend = self.GUICtrlCreateInput('', 215, 30, 250, 30)
+		self.hInputSpend.setReadOnly(True)
+		self.hInputView = self.GUICtrlCreateInput('', 215, 80, 250, 30)
+		self.hInputView.setReadOnly(True)
+		self.hInputSeed = self.GUICtrlCreateInput('', 215, 130, 250, 30)
+		self.hInputSeed.setReadOnly(True)
+		
+		self.hLabelSpend = self.GUICtrlCreateLabel("Private spend key", 215, 15)
+		self.hLabelView = self.GUICtrlCreateLabel("Private view key", 215, 65)
+		self.hLabelSeed = self.GUICtrlCreateLabel("Mnemonic seed", 215, 115)
+		
+		self.hButtonBack = self.GUICtrlCreateButton("Back", 215, 170, 50, 30)
+		self.tabsControls['keys'] = [self.hInputSpend, self.hInputView, self.hInputSeed,
+		self.hLabelSpend, self.hLabelView, self.hLabelSeed, self.hButtonBack]
+		for ctrl in self.tabsControls['keys']:
+			ctrl.hide()
+		
+		
 		#grouping controls
-		self.tabsControls[self.hButtonSettings.objectName()] = [self.hDropDownNode, self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
+		self.tabsControls[self.hButtonSettings.objectName()] = [self.hLabelKeys, self.hButtonKeys, self.hDropDownNode, self.hCheckboxNots, self.hCheckboxNotsBk, self.hCheckboxNotsText,
 		self.hCheckboxTrayClose, 
 		self.hCheckboxTrayCloseBk, self.hCheckboxTrayCloseText, self.hLabelNode]
 		
@@ -547,12 +572,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hButtonDonate = self.GUICtrlCreateButton('Donate', 215, 150, 75, 30)
 		
 		#Init config controls
-		self.hLabelNodeType = self.GUICtrlCreateLabel('Please select preferred type of connection to the network', 250, 175, 0, 0, '13px')
-		self.hLabelPath = self.GUICtrlCreateLabel('Please select working directory for wallet', 270, 120)
-		self.hInputPath = self.GUICtrlCreateInput(str(pathlib.Path.home()), 250, 140, 200, 30)
+		self.hLabelNodeType = self.GUICtrlCreateLabel('Network connection type', 250, 205, 0, 0, '13px')
+		self.hLabelPath = self.GUICtrlCreateLabel('Wallet working directory', 250, 150)
+		self.hInputPath = self.GUICtrlCreateInput(config['wallet']['workdir'], 250, 170, 200, 30)
 		self.hInputPath.setReadOnly(True)
-		self.hButtonBrowse = self.GUICtrlCreateButton('Browse', 455, 140, 60, 30)
-		self.tabsControls['initconfig'] = [self.hLabelNodeType, self.hLabelPath, self.hInputPath, self.hButtonBrowse,
+		self.hButtonBrowse = self.GUICtrlCreateButton('Browse', 455, 170, 60, 30)
+		self.hButtonOk = self.GUICtrlCreateButton('Ok', 520, 170, 30, 30)
+		self.tabsControls['initconfig'] = [self.hButtonOk, self.hLabelNodeType, self.hLabelPath, self.hInputPath, self.hButtonBrowse,
 		self.hDropDownNode]
 		
 		self.tabsControls[self.hButtonAbout.objectName()] = [self.hLabelAbout, self.hButtonDonate]
@@ -567,7 +593,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 			ctrl.hide()
 		for ctrl in self.tabsControls['initconfig']:
 			ctrl.hide()
-		'''
 		#checking connection type in config	
 		if config['wallet']['connection'] == 'local':
 			self.hDropDownNode.hLabelSelection.setText('Run local node')
@@ -580,7 +605,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 		url = config['wallet']['url'].split(':')
 		self.hInputUrl.setText(url[0] + ':' + url[1])
 		self.hInputUrlPort.setText(url[2])
-		'''
 		
 		# Create tray menu
 		self.tray_menu = QMenu()
@@ -699,8 +723,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			self.sizeX = sizeX
 			self.sizeY = sizeY
 			
-			self.hLabelSelection = parent.GUICtrlCreateInput(str(items[0]), posX, posY, sizeX - sizeY, sizeY)
-			self.hLabelSelection.setReadOnly(True)
+			self.hLabelSelection = parent.GUICtrlCreateLabel(str(items[0]), posX, posY, sizeX - sizeY, sizeY, 'rgba(255, 255, 255, 15%);text-align: left;padding-left: 3px', 0, '14px', 'bold')
 			
 			self.hButtonSelect = parent.GUICtrlCreateButton('▼', posX + sizeX - sizeY, posY, sizeY, sizeY)
 			self.hButtonSelect.clicked.connect(self.toggle)
@@ -866,38 +889,20 @@ If you enjoy the program you can support me by donating some MRL using button be
 			else:
 				for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
 					ctrl.hide()
-			self.hLabelSelInfo.show()
-			self.netChanged = True
-			with open("Wallet.ini", "w") as configfile:
-				config.write(configfile)
 	
 	#buttons event processing function
 	def button_proc(self):
 		obj = self.sender()
-		if self.netSelect and obj != self.hButtonSelect:
-			for item in [self.hButtonSelectLocal, self.hButtonSelectPublic1, self.hButtonSelectPublic2, self.hButtonSelectManual]:
-				item.hide()
-			GUICtrlSetBkColor(self.hButtonSelect, 'rgba(255, 255, 255, 15%)')
-			GUICtrlSetColor(self.hButtonSelect, 'rgb(230, 140, 0)')
-			self.hButtonSelect.setText('▼')
-			self.netSelect = False
-			if self.netChanged:
-				self.hLabelSelInfo.show()
 		if obj != self.activeTab:
 			#Switching TABS
 			if obj in self.navButtons:
-				if self.netChanged:
-					if obj == self.hButtonSettings:
-						self.hLabelSelInfo.show()
-					else:
-						self.hLabelSelInfo.hide()
 				if config['wallet']['connection'] == 'custom':
 					if obj == self.hButtonSettings:
 						for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
-								ctrl.show()
+							ctrl.show()
 					else:
 						for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
-								ctrl.hide()
+							ctrl.hide()
 				GUICtrlSetBkColor(self.activeTab, 'rgba(255, 255, 255, 15%)')
 				GUICtrlSetColor(self.activeTab, 'rgb(230, 140, 0)')
 				for ctrl in self.tabsControls[self.activeTab.objectName()]:
@@ -908,8 +913,39 @@ If you enjoy the program you can support me by donating some MRL using button be
 					ctrl.show()
 				self.activeTab = obj
 			else:
+				#Initial config ok button
+				if obj == self.hButtonOk:
+					self.pipe = 'config'
+				#Show keys button
+				elif obj == self.hButtonKeys:
+					for ctrl in self.tabsControls[self.hButtonSettings.objectName()]:
+						ctrl.hide()
+					for ctrl in self.tabsControls['keys']:
+						ctrl.show()
+				#Keys back button
+				elif obj == self.hButtonBack:
+					for ctrl in self.tabsControls[self.hButtonSettings.objectName()]:
+						ctrl.show()
+					for ctrl in self.tabsControls['keys']:
+						ctrl.hide()
+				#initial config browse button
+				elif obj == self.hButtonBrowse:
+					self.hDropDownNode.hButtonSelect.setEnabled(False)
+					self.hButtonBrowse.setEnabled(False)
+					self.hButtonOk.setEnabled(False)
+					tkroot = Tk()
+					tkroot.withdraw()
+					file_path = filedialog.askdirectory(title='Select directory')
+					tkroot.destroy()
+					print(file_path)
+					if file_path and pathlib.Path(file_path).exists():
+						self.hInputPath.setText(file_path)
+						config['wallet']['workingdir'] = file_path
+					self.hDropDownNode.hButtonSelect.setEnabled(True)
+					self.hButtonBrowse.setEnabled(True)
+					self.hButtonOk.setEnabled(True)
 				#logout button
-				if obj == self.hButtonLogout:
+				elif obj == self.hButtonLogout:
 					print("INFO: Log Out")
 					for ctrl in self.tabsControls['leftpanel']:
 						ctrl.hide()
@@ -1128,21 +1164,36 @@ If you enjoy the program you can support me by donating some MRL using button be
 	#magic background thread
 	def NetworkThread(self):
 		global daemon_url
-		while True:
-			#Initial config
-			if not pathlib.Path("Wallet.ini").is_file():
-				print('INFO: No wallet config, initial setup')
-				for ctrl in self.tabsControls['initconfig']:
-					ctrl.show()
-				self.hDropDownNode.move(250, 190)
-				newwallet = True
-				with open("Wallet.ini", "w") as configfile:
-					config['wallet'] = {'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
-					config.write(configfile)
-					print('INFO: Config saved')
-			#reading config file
-			config.read("Wallet.ini")
-			daemon_url = config['wallet']['url']
+		#Initial config
+		if not pathlib.Path("Wallet.ini").is_file():
+			print('INFO: No wallet config, initial setup')
+			for ctrl in self.tabsControls['initconfig']:
+				ctrl.show()
+			self.hDropDownNode.move(250, 220)
+			self.hLabelUrl.move(450, 205)
+			self.hInputUrl.move(450, 220)
+			self.hLabelUrlPort.move(450, 255)
+			self.hInputUrlPort.move(450, 270)
+			while True:
+				if self.pipe == 'config':
+					break
+			self.hDropDownNode.move(215, 175)
+			self.hLabelUrl.move(450, 160)
+			self.hInputUrl.move(450, 175)
+			self.hLabelUrlPort.move(450, 210)
+			self.hInputUrlPort.move(450, 225)
+			for ctrl in self.tabsControls[self.hButtonSettings.objectName()]:
+				ctrl.hide()
+			for ctrl in self.tabsControls['initconfig']:
+				ctrl.hide()
+			newwallet = True
+			with open("Wallet.ini", "w") as configfile:
+				config.write(configfile)
+			print('INFO: Config saved')
+		#reading config file
+		config.read("Wallet.ini")
+		daemon_url = config['wallet']['url']
+		self.hLabelInit.show()
 		if '--offline' in app.arguments():
 			print('INFO: Running wallet in offline mode')
 			self.runOffline()
@@ -1267,6 +1318,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				#read wallet address
 				walletAddresses = GetWalletAddress()
 				self.GetWalletKeys()
+				self.UpdateKeys()
 				#i dont remember why this shit exist here but leave that
 				if walletAddresses:
 					self.wallet_address = walletAddresses['result']['address']
@@ -1348,17 +1400,18 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hButtonRestore.hide()
 		self.hLabelTip.hide()
 		date = datetime.datetime.fromtimestamp(1576705196)
-		self.addTx.emit(str(date), '4437459bac024c7ce3fc0ecf63ef482466fd19141f46709c1cd640aeb6c20e27', str(1.234000))
+		self.addTx.emit([str(date), '4437459bac024c7ce3fc0ecf63ef482466fd19141f46709c1cd640aeb6c20e27', str(1.234000)])
 	
 	def hideWindow(self):
 		self.hide()
 	
 	#add transaction to table
-	def AddTx(self, col0, col1, col2):
+	def AddTx(self, data):
 		self.hTableTransactions.insertRow(0)
-		self.hTableTransactions.setItem(0, 0, QTableWidgetItem(col0))
-		self.hTableTransactions.setItem(0, 1, QTableWidgetItem(col1))
-		self.hTableTransactions.setItem(0, 2, QTableWidgetItem(col2))
+		for i in range(3):
+			item = QTableWidgetItem(data[i])
+			item.setFlags( Qt.ItemIsSelectable | Qt.ItemIsEnabled )
+			self.hTableTransactions.setItem(0, i, item)
 	
 	#sort table
 	def SortTx(self):
@@ -1399,7 +1452,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					amount = amount / 1000000000
 					if tx_info['result']['transfer']['type'] == 'out':
 						amount = amount * -1
-					self.addTx.emit(str(date), transaction, '%.9f' % amount)
+					self.addTx.emit([str(date), transaction, '%.6f' % amount])
 					if not fullScan and tx_info['result']['transfer']['type'] == 'in':
 						print('New transaction found! Amount:' + str(amount) + ' (' + transaction + ')')
 						self.IncomingTx(transaction, str(amount), str(date))
@@ -1418,7 +1471,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hLabelBalanceLockedValue.setText('%.6f' % self.walletBalanceLocked)
 		
 	def UpdateKeys(self):
-		a = 'sratatata do dokonczenia'
+		self.hInputSpend.setText(self.wallet_keys['spend'])
+		self.hInputView.setText(self.wallet_keys['view'])
+		self.hInputSeed.setText(self.wallet_keys['seed'])
 
 style = '''
 			QHeaderView::section {
@@ -1445,11 +1500,15 @@ style = '''
 				color: rgb(230, 140, 0);
 			}
 			QTableWidget::item {
-				width
-				border-left: 1px solid rgba(230, 140, 0);
+				border-left: 1px solid rgb(230, 140, 0);
 				background: rgba(255, 255, 255, 15%);
 			}	
 			QTableWidget::item:focus {
+				border-left: 1px solid rgb(230, 140, 0);
+				background: rgba(255, 255, 255, 15%);
+				color: rgb(230, 140, 0);
+			}	
+			QTableWidget::item:selected {
 				border-left: 1px solid rgb(230, 140, 0);
 				background: rgba(255, 255, 255, 15%);
 				color: rgb(230, 140, 0);
@@ -1481,6 +1540,7 @@ style = '''
 if __name__ == '__main__':
 	donate_address = 'enter donate address here'
 	config = configparser.ConfigParser()
+	config['wallet'] = {'workdir' : str(pathlib.Path(str(pathlib.Path.home()) + '/morelo')), 'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
 	if not '--offline' in sys.argv:
 		#check morelo binaries exists
 		pathwalletRPC = 'morelo-wallet-rpc.exe' if os.name == 'nt' else 'morelo-wallet-rpc'
