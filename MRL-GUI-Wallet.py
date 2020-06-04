@@ -302,9 +302,6 @@ class App(QWidget):
 		#initial values for some variables
 		super().__init__()
 		self.threadpool = QThreadPool()
-		self.title = 'Morelo GUI Wallet v' + version.version
-		self.width = 800
-		self.height = 470
 		self.ctrlCount = 0
 		self.walletRPC = 0
 		self.xi_daemon = 0
@@ -312,13 +309,10 @@ class App(QWidget):
 		self.wallet_address = ''
 		self.wallet_keys = {'view' : '', 'spend' : '', 'seed' : ''}
 		self.exit_from_tray = False
-		self.valid_amount = False
-		self.valid_address = False
 		self.nodeSync = 0
 		self.networkSync = 0
 		self.lastScan = 0
 		self.notQueue = queue.Queue()
-		self.walletRPC_initialized = False
 		self.running = True
 		self.pwd = ''
 		self.scanning = False
@@ -358,8 +352,8 @@ class App(QWidget):
 	def initUI(self):
 		print('INFO: Generating window controls')
 		#window title and size
-		self.setWindowTitle(self.title)
-		self.setFixedSize(self.width, self.height)
+		self.setWindowTitle('Morelo GUI Wallet v' + version.version)
+		self.setFixedSize(800, 470)
 		self.tabsControls = {}
 		
 		#Image background
@@ -458,7 +452,11 @@ class App(QWidget):
 		validator.setLocale(locale)
 		self.hInputAmount.setValidator(validator)
 		self.hInputAddress = self.GUICtrlCreateInput('', 215, 80, 250, 30, 'rgba(255, 0, 0, 15%)')
+		validator = QRegExpValidator(QRegExp("[e][m][ois][1-9a-zA-Z]{95}"))
+		self.hInputAddress.setValidator(validator)
 		self.hInputPaymentID = self.GUICtrlCreateInput('', 215, 130, 125, 30)
+		validator = QRegExpValidator(QRegExp("([0-9a-fA-F]{16}|[0-9a-fA-F]{64})"))
+		self.hInputPaymentID.setValidator(validator)
 		
 		self.hLabelAmount = self.GUICtrlCreateLabel("Amount", 215, 15)
 		self.hLabelAmountErr = self.GUICtrlCreateLabel("Please enter amount", 335, 60, 130, 20, 0, '#b53b3b')
@@ -551,11 +549,11 @@ class App(QWidget):
 		self.hTableTransactions.move(215, 15)
 		self.hTableTransactions.setFixedSize(570, 205)
 		self.hTableTransactions.verticalHeader().hide()
-		self.hTableTransactions.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+		self.hTableTransactions.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 		self.hTableTransactions.setHorizontalHeaderLabels(['Date', 'Tx hash', 'Amount'])
 		self.hTableTransactions.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
 		self.hTableTransactions.horizontalHeader().resizeSection(0, 160)
-		self.hTableTransactions.horizontalHeader().resizeSection(1, 245)
+		self.hTableTransactions.horizontalHeader().resizeSection(1, 230)
 		self.hTableTransactions.horizontalHeader().resizeSection(2, 163)
 		self.tabsControls[self.hButtonHistory.objectName()] = [self.hTableTransactions]
 		#About TAB
@@ -1035,7 +1033,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				#Send founds button
 				elif obj== self.hButtonSendSend:
 					sending = True
-					if not self.valid_address or not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance:
+					if not self.hInputAddress.hasAcceptableInput() or not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance:
 						self.controlBlink(3, 0.15)
 						sending = False
 					if sending:
@@ -1059,8 +1057,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def input_proc_end(self):
 		obj = self.sender()
 		if obj == self.hInputAmount:
-			dot = find_str(obj.text(), '.')
-			if obj.text() != '' and ValidAmount(obj.text()) and float(obj.text()) > 0 and not (dot >= 0 and len(obj.text()) > 10 + dot): obj.setText('%.9f' % float(obj.text()))
+			if obj.hasAcceptableInput(): obj.setText('%.9f' % float(obj.text()))
 		elif obj == self.hInputUrl or obj == self.hInputUrlPort:
 			config['wallet']['url'] = self.hInputUrl.text() + ':' + self.hInputUrlPort.text()
 			with open("Wallet.ini", "w") as configfile:
@@ -1070,35 +1067,26 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def input_proc(self):
 		obj = self.sender()
 		if obj == self.hInputAmount:
-			if obj.text() == '' or float(obj.text()) == 0 :
-				self.hLabelAmountErr.setText('Please enter amount')
-			elif float(obj.text()) > self.walletBalance:
-				self.hLabelAmountErr.setText('Not enought founds')
-			elif not obj.hasAcceptableInput():
-				self.hLabelAmountErr.setText('Invalid amount')
+			GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 0, 0, 15%)')
+			if obj.hasAcceptableInput():
+				if float(obj.text()) > self.walletBalance:
+					self.hLabelAmountErr.setText('Not enought founds')
+				else:
+					self.hLabelAmountErr.setText('')
+					GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 255, 255, 15%)')
 			else:
-				self.hLabelAmountErr.setText('')
-			if obj.hasAcceptableInput() and float(obj.text()) <= self.walletBalance:
-				GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 255, 255, 15%)')
-			else:
-				GUICtrlSetBkColor(self.hInputAmount, 'rgba(255, 0, 0, 15%)')
+				self.hLabelAmountErr.setText('Invalid amount' if obj.text() != '' else 'Please enter amount')
+				
 		elif obj == self.hInputAddress:
 			#Checking typed address
-			self.valid_address = False
 			obj.setText(obj.text().replace(' ', ''))
-			if obj.text() == '': #Not entered
-				self.hLabelAddressErr.setText('Please enter address')
-			elif len(obj.text()) != 98: #Too short
-				self.hLabelAddressErr.setText('Invalid address')
-			elif obj.text()[0:3] != 'emo': #Not valid - no prefix
-				self.hLabelAddressErr.setText('Invalid address')
-			else:
+			GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 0, 0, 15%)')
+			if obj.hasAcceptableInput():
 				self.hLabelAddressErr.setText('')
-				self.valid_address = True
-			if self.valid_address:
 				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 255, 255, 15%)')
 			else:
-				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 0, 0, 15%)')
+				self.hLabelAddressErr.setText('Invalid address' if obj.text != '' else 'Please enter address')
+				
 		elif obj == self.hInputUrl:
 			if obj.text() == '' or obj.text()[0:7] != 'http://':
 				obj.setText('http://')
@@ -1122,11 +1110,11 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def blinkProc(self, times, delay):
 		for i in range(times):
 			if not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance: self.hLabelAmountErr.hide()
-			if not self.valid_address: self.hLabelAddressErr.hide()
+			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAddressErr.hide()
 			sleep(delay)
 			if self.activeTab != self.hButtonSend: break
 			if not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance: self.hLabelAmountErr.show()
-			if not self.valid_address: self.hLabelAddressErr.show()
+			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAddressErr.show()
 			sleep(delay)
 	
 	#network status update 
@@ -1484,7 +1472,7 @@ style = '''
 				font-weight: bold;
 			}
 			QHeaderView {
-				background: rgba(255, 255, 255, 15%);
+				background: transparent;
 			}
 			QHeaderView::section:checked
 			{
@@ -1495,22 +1483,22 @@ style = '''
 			}
 			QTableWidget {
 				gridline-color: rgb(230, 140, 0);
-				background-color: transparent;
+				background-color: rgba(255, 255, 255, 15%);
 				border: 1px solid rgb(230, 140, 0);
 				color: rgb(230, 140, 0);
 			}
 			QTableWidget::item {
 				border-left: 1px solid rgb(230, 140, 0);
-				background: rgba(255, 255, 255, 15%);
+				background: transparent;
 			}	
 			QTableWidget::item:focus {
 				border-left: 1px solid rgb(230, 140, 0);
-				background: rgba(255, 255, 255, 15%);
+				background: transparent;
 				color: rgb(230, 140, 0);
 			}	
 			QTableWidget::item:selected {
 				border-left: 1px solid rgb(230, 140, 0);
-				background: rgba(255, 255, 255, 15%);
+				background: transparent;
 				color: rgb(230, 140, 0);
 			}	
 			QCheckBox {
@@ -1534,6 +1522,43 @@ style = '''
 			QCheckBox::indicator:unchecked {
 				width: 25px;
 				height: 25px;
+			}
+			QScrollBar:vertical {
+				border: none;
+				background: transparent;
+				width: 15px;
+				margin: 22px 0 22px 0;
+			}
+			QScrollBar::handle:vertical {
+				border-top: 1px solid rgb(230, 140, 0);
+				border-bottom: 1px solid rgb(230, 140, 0);
+				background: rgba(230, 140, 0, 50%);
+				min-height: 20px;
+			}
+			QScrollBar::add-line:vertical {
+				border: 1px solid rgb(230, 140, 0);
+				background: rgba(230, 140, 0, 50%);
+				height: 20px;
+				subcontrol-position: bottom;
+				subcontrol-origin: margin;
+			}
+
+			QScrollBar::sub-line:vertical {
+				border: 1px solid rgb(230, 140, 0);
+				background: rgba(230, 140, 0, 50%);
+				height: 20px;
+				subcontrol-position: top;
+				subcontrol-origin: margin;
+			}
+			QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+				border: 2px solid rgb(230, 140, 0);
+				width: 3px;
+				height: 3px;
+				background: white;
+			}
+
+			QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+				background: none;
 			}
 		'''
 
