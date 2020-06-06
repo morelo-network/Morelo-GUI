@@ -49,7 +49,7 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install threading')
 	missingLibs = True
 try:
-	from subprocess import run, Popen, PIPE
+	from subprocess import run, Popen, PIPE, DEVNULL
 except:
 	pass
 	print('ERROR: Missing module, try install it by command: python -m pip install subprocess')
@@ -424,7 +424,7 @@ class App(QWidget):
 		self.hLabelBalanceLockedValue = self.GUICtrlCreateLabel('0.000000', 25, 115, 175, 25, 0, 'white', '18px', 'normal')
 		#Network status
 		self.hLabelNetwork = self.GUICtrlCreateLabel("Network status:", 5, 448, 0, 0, 'transparent', 0, '14px', 'bold')
-		self.hLabelNetworkStatus = self.GUICtrlCreateLabel("Disconnected", 125, 450, 0, 0, 'transparent', '#fc7c7c', '11px', 'bold')
+		self.hLabelNetworkStatus = self.GUICtrlCreateLabel("Disconnected", 125, 450, 150, 0, 'transparent', '#fc7c7c', '11px', 'bold')
 		self.hLabelNetworkDiff = self.GUICtrlCreateLabel("Network diff: 1000000000", 300, 450, 190, 0, 'transparent', 0, '11px', 'bold')
 		self.hLabelNetworkHashrate = self.GUICtrlCreateLabel("Network hashrate: 0", 555, 450, 190, 0, 'transparent', 0, '11px', 'bold')
 		#Navigation
@@ -651,7 +651,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		response = False
 		try:
 			response = requests.post(daemon_url + '/json_rpc', data='{"method" : "sync_info", "id" : "0", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
-			response2 = requests.post(daemon_url + '/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_block_count"}', headers={'Content-Type':'application/json'})
+			response2 = requests.post(daemon_url + '/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_connections"}', headers={'Content-Type':'application/json'})
 			response3 = requests.post(daemon_url + '/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_info"}', headers={'Content-Type':'application/json'})
 		except:
 			pass
@@ -661,7 +661,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 			response.json['result']['difficulty'] = 0
 			response2 = json.loads(response2.text)
 			response3 = json.loads(response3.text)
-			response.json['result']['target_height'] = response2['result']['count']
+			target_height = 0
+			if 'connections' in response2['result']:
+				for conn in response2['result']['connections']:
+					if conn['height'] > target_height:
+						target_height = conn['height']
+			response.json['result']['target_height'] = target_height
 			if response3: response.json['result']['difficulty'] = response3['result']['difficulty']
 		return response
 		
@@ -1012,7 +1017,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 				#Wallet create button
 				elif obj == self.hButtonCreate:
 					random_container = randomString(10)
-					config['wallet']['path'] = random_container + '.wallet'
+					config['wallet']['path'] = str(pathlib.Path(config['wallet']['workdir'] + '/' + random_container))
+					self.filename = random_container
 					self.hButtonCreate.hide()
 					self.hButtonOpen.hide()
 					self.hButtonRestore.hide()
@@ -1201,7 +1207,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			#starting local node and waiting for connection
 			if not daemon:
 				print('INFO: Starting local node...')
-				self.xi_daemon = Popen(os.getcwd() + "/morelod --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind", stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+				self.xi_daemon = Popen(os.getcwd() + '/morelod --data-dir "' + config['wallet']['workdir'] + '" --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind', stdout=PIPE, shell=True)
 				if self.WaitForDaemon():
 					daemon = True
 				else:
@@ -1244,12 +1250,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						new_wallet_process = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir . --rpc-bind-port 38420 --disable-rpc-login',stdout=PIPE,  shell=True)#, creationflags = CREATE_NO_WINDOW)
+						new_wallet_process = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir "' + config['wallet']['workdir'] + '" --rpc-bind-port 38420 --disable-rpc-login',stdout=DEVNULL,  shell=True)#, creationflags = CREATE_NO_WINDOW)
 						while True:
 							if not self.running:
 								return
 							try:
-								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
+								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + self.filename + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
 								if respond.status_code == 200:
 									break
 							except:
