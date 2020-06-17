@@ -572,7 +572,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		#Init config controls
 		self.hLabelNodeType = self.GUICtrlCreateLabel('Network connection type', 250, 205, 0, 0, '13px')
 		self.hLabelPath = self.GUICtrlCreateLabel('Wallet working directory', 250, 150)
-		self.hInputPath = self.GUICtrlCreateInput(config['wallet']['workdir'], 250, 170, 200, 30)
+		self.hInputPath = self.GUICtrlCreateInput(config['wallet']['workdir'].replace('"', ''), 250, 170, 200, 30)
 		self.hInputPath.setReadOnly(True)
 		self.hButtonBrowse = self.GUICtrlCreateButton('Browse', 455, 170, 60, 30)
 		self.hButtonOk = self.GUICtrlCreateButton('Ok', 520, 170, 30, 30)
@@ -943,7 +943,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					print(file_path)
 					if file_path and pathlib.Path(file_path).exists():
 						self.hInputPath.setText(file_path)
-						config['wallet']['workingdir'] = file_path
+						config['wallet']['workdir'] = '"' + file_path + '"'
 					self.hDropDownNode.hButtonSelect.setEnabled(True)
 					self.hButtonBrowse.setEnabled(True)
 					self.hButtonOk.setEnabled(True)
@@ -986,6 +986,10 @@ If you enjoy the program you can support me by donating some MRL using button be
 				#submit password (On wallet creation)
 				elif obj == self.hButtonPassSet:
 					self.pwd = self.hInputPass.text()
+					self.hButtonCreate.hide()
+					self.hButtonOpen.hide()
+					self.hButtonRestore.hide()
+					self.hLabelTip.hide()
 					self.pipe = 'newwallet'
 				#Donate button
 				elif obj == self.hButtonDonate:
@@ -1002,7 +1006,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					file_path = filedialog.askopenfilename(title='Select wallet file', filetypes=[('All files', '*')])
 					tkroot.destroy()
 					if pathlib.Path(file_path).is_file():
-						config['wallet']['path'] = file_path
+						config['wallet']['path'] = '"' + file_path + '"'
 						with open("Wallet.ini", "w") as configfile:
 							config.write(configfile)
 						self.hLabelInit.show()
@@ -1017,7 +1021,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				#Wallet create button
 				elif obj == self.hButtonCreate:
 					random_container = randomString(10)
-					config['wallet']['path'] = str(pathlib.Path(config['wallet']['workdir'] + '/' + random_container))
+					config['wallet']['path'] = '"' + str(pathlib.Path(config['wallet']['workdir'] + '/' + random_container + '"'))
 					self.filename = random_container
 					self.hButtonCreate.hide()
 					self.hButtonOpen.hide()
@@ -1389,10 +1393,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 		if not noQR: self.UpdateQrCode()
 		self.hLabelInit.hide()
 		self.hLabelLogo.hide()
-		self.hButtonCreate.hide()
-		self.hButtonOpen.hide()
-		self.hButtonRestore.hide()
-		self.hLabelTip.hide()
 		date = datetime.datetime.fromtimestamp(1576705196)
 		self.addTx.emit([str(date), '4437459bac024c7ce3fc0ecf63ef482466fd19141f46709c1cd640aeb6c20e27', str(1.234000)])
 	
@@ -1571,7 +1571,7 @@ style = '''
 if __name__ == '__main__':
 	donate_address = 'enter donate address here'
 	config = configparser.ConfigParser()
-	config['wallet'] = {'workdir' : str(pathlib.Path(str(pathlib.Path.home()) + '/morelo')), 'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
+	config['wallet'] = {'workdir' : '"' + str(pathlib.Path(str(pathlib.Path.home()) + '/morelo"')), 'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
 	if not '--offline' in sys.argv:
 		#check morelo binaries exists
 		pathwalletRPC = 'morelo-wallet-rpc.exe' if os.name == 'nt' else 'morelo-wallet-rpc'
