@@ -638,14 +638,20 @@ If you enjoy the program you can support me by donating some MRL using button be
 			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
 			self.wallet_keys['view'] = response['result']['key']
+		except:
+			print("ERROR: Can't read wallet view key")
+		try:
 			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
-			self.wallet_keys['spend'] = response['result']['key']		
+			self.wallet_keys['spend'] = response['result']['key']
+		except:
+			print("ERROR: Can't read wallet spend key")
+		try:
 			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"mnemonic"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
 			self.wallet_keys['seed'] = response['result']['key']
 		except:
-			print("ERROR: Can't read wallet keys")
+			print("ERROR: Can't read wallet mnemonic seed")
 	
 	def GetNodeInfo(self):
 		response = False
@@ -1215,7 +1221,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			#starting local node and waiting for connection
 			if not daemon:
 				print('INFO: Starting local node...')
-				self.xi_daemon = Popen(os.getcwd() + '/morelod --data-dir "' + config['wallet']['workdir'] + '" --disable-dns-checkpoints --bg-mining-enable --allow-local-ip --p2p-bind-ip 0.0.0.0 --rpc-bind-ip 0.0.0.0 --confirm-external-bind', stdout=PIPE, shell=True)
+				self.xi_daemon = Popen(os.getcwd() + '/morelod --add-exclusive-node 80.60.19.222 --data-dir "' + config['wallet']['workdir'], shell=True)#, stdout=PIPE, shell=True)
 				if self.WaitForDaemon():
 					daemon = True
 				else:
@@ -1228,7 +1234,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				return
 			else:
 				#checking wallet in config exists or is not configured
-				if not pathlib.Path(config['wallet']['path']).is_file():
+				if not pathlib.Path(config['wallet']['workdir'] + '/' + config['wallet']['path']).is_file():
 					#if no show open / create / restore wallet buttons
 					print('ERROR: Wallet file not found')
 					self.hButtonCreate.show()
@@ -1240,6 +1246,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 					#if yes we going further
 					print('INFO: Wallet file found')
 					self.pipe = 'walletrpc'
+			#Run wallet RPC
+			self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir "' + config['wallet']['workdir'] + '" --rpc-bind-port 38340 --disable-rpc-login',stdout=DEVNULL,  shell=True)#, creationflags = CREATE_NO_WINDOW)
 			#magic here
 			#\/ this loop for logout and re logging feature
 			while True:
@@ -1258,7 +1266,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						new_wallet_process = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir "' + config['wallet']['workdir'] + '" --rpc-bind-port 38340 --disable-rpc-login',stdout=DEVNULL,  shell=True)#, creationflags = CREATE_NO_WINDOW)
 						while True:
 							if not self.running:
 								return
@@ -1268,8 +1275,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 									break
 							except:
 								pass
-						#close wallet-rpc after generating wallet
-						new_wallet_process.terminate()
 						#update wallet config
 						with open("Wallet.ini", "w") as configfile:
 							config.write(configfile)
@@ -1277,13 +1282,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 					else:
 						sleep(0.05)
 				#wallet-rpc initializing
-				if ProcessExists("morelo-wallet-rpc"):
-					ProcessClose("morelo-wallet-rpc")
+				#if ProcessExists("morelo-wallet-rpc"):
+				#	ProcessClose("morelo-wallet-rpc")
 				#new wallet is generated
-				if self.pwd == -1:
-					print('INFO: Starting wallet-rpc (New wallet generated)')
-				else:
-					print('INFO: Starting wallet-rpc (Checking that have password)')
+				#if self.pwd == -1:
+				#	print('INFO: Starting wallet-rpc (New wallet generated)')
+				#else:
+				#	print('INFO: Starting wallet-rpc (Checking that have password)')
 				#next magic loop
 				while True:
 					if not self.running:
@@ -1317,11 +1322,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 					print('INFO: Wallet started (No password)')
 				else:
 					print('INFO: Wallet started (Password is correct)')
-				#read wallet address
-				walletAddresses = GetWalletAddress()
-				self.GetWalletKeys()
-				self.UpdateKeys()
 				#i dont remember why this shit exist here but leave that
+				walletAddresses = GetWalletAddress()
 				if walletAddresses:
 					print(walletAddresses)
 					self.wallet_address = walletAddresses['result']['address']
@@ -1354,10 +1356,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.UpdateTransactions()
 					sleep(2.5)
 				#finally the end of this fucking loops magic
-				
-	def BinStdRead(self):
-		while self.walletRPC.poll() is None:
-			self.walletRPC.stdout.readline()
 			
 	#running wallet rpc and waiting for his respond
 	def WaitForWalletRPC(self):
@@ -1365,10 +1363,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 		url = daemon_url[7:].split(':')
 		addr = url[0]
 		port = url[1]
-		return 'ok'
-		#running wallet rpc
-		self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38340 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'], shell=True)# , stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
-		threading.Timer(0, self.BinStdRead).start()
+		#opening wallet using RPC
+		response = json.loads(requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"open_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":""}}', headers={'Content-Type':'application/json'}).text)
+		#read wallet address
+		self.GetWalletKeys()
+		self.UpdateKeys()
+		#self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38340 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + addr + ':' + port, stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
 		walletRPC = False
 		#waiting for respond or crash
 		while self.walletRPC.poll() is None:
@@ -1384,7 +1384,6 @@ If you enjoy the program you can support me by donating some MRL using button be
 				else:
 					return 'wrongpassword'
 		else:
-			sleep(5)
 			return 'ok'
 
 	#running wallet in offline mode, it's not offline in meaning of without networking but only for GUI debbuging
@@ -1421,9 +1420,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 	#read transactions from wallet then add them to table, scan and add incoming transactions to table
 	def UpdateTransactions(self):
 		try:
-			response = json.loads(requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_height"}', headers={'Content-Type':'application/json'}).text)
+			response = json.loads(requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_height"}', headers={'Content-Type':'application/json'}).text)
 		except:
-			pass
 			print("ERROR: Can't get wallet sync height")
 			return
 		#checking wallet rpc is synced with daemon
