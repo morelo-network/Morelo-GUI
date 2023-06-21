@@ -244,22 +244,22 @@ def find_str(s, char):
 	return -1
 	
 def SendTransaction(receiver, amount, pay_id):
-	response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"transfer","params":{"destinations":[{"amount":' + str(int(amount * 1000000000)) +',"address":"' + receiver +'"}]}}', headers={'Content-Type':'application/json'})
+	response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"transfer","params":{"destinations":[{"amount":' + str(int(amount * 1000000000)) +',"address":"' + receiver +'"}]}}', headers={'Content-Type':'application/json'})
 	return json.loads(response.text)
    
 def GetWalletBalance():
 	response = -1
 	try:
-		response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_balance","params":{"account_index":0}', headers={'Content-Type':'application/json'})
+		response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_balance","params":{"account_index":0}', headers={'Content-Type':'application/json'})
 		response = json.loads(response.text)
 	except:
-		pass
+		print("ERROR: Can't get wallet's balance")
 	return response
    
 def GetWalletAddress():
 	response = False
 	try:
-		response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_address","params":{"account_index":0}', headers={'Content-Type':'application/json'})
+		response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_address","params":{"account_index":0}', headers={'Content-Type':'application/json'})
 		response = json.loads(response.text)
 	except:
 		pass
@@ -267,7 +267,7 @@ def GetWalletAddress():
 
 def GetWalletTransactions(start, count):
 	transactions = []
-	response = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"filter_by_height":true, "pending":true, "in":true, "out":true, "min_height":' + str(start) + ', "max_height":' + str(start + count) +'}}', headers={'Content-Type':'application/json'})
+	response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"filter_by_height":true, "pending":true, "in":true, "out":true, "min_height":' + str(start) + ', "max_height":' + str(start + count) +'}}', headers={'Content-Type':'application/json'})
 	data = json.loads(response.text)
 	if 'in' in data['result']:
 		for block in data['result']['in']:
@@ -281,7 +281,7 @@ def GetWalletTransactions(start, count):
 	return transactions
 	
 def GetTransactionInfo(hash):
-	response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"get_transfer_by_txid","params":{"txid":"' + hash + '"}}', headers={'Content-Type':'application/json'})
+	response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"get_transfer_by_txid","params":{"txid":"' + hash + '"}}', headers={'Content-Type':'application/json'})
 	return json.loads(response.text)
 
 class Worker(QRunnable):
@@ -338,7 +338,7 @@ class App(QWidget):
 			if not '--offline' in app.arguments():
 				try:
 				#send close signal to wallet's rpc
-					requests.post('http://127.0.0.1:38420/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+					requests.post('http://127.0.0.1:38340/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 				except:
 					pass
 				#close daemon
@@ -635,13 +635,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 	
 	def GetWalletKeys(self):
 		try:
-			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}', headers={'Content-Type':'application/json'})
+			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
 			self.wallet_keys['view'] = response['result']['key']
-			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}', headers={'Content-Type':'application/json'})
+			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
 			self.wallet_keys['spend'] = response['result']['key']		
-			response = requests.post('http://127.0.0.1:38420/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"mnemonic"}}', headers={'Content-Type':'application/json'})
+			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"mnemonic"}}', headers={'Content-Type':'application/json'})
 			response = json.loads(response.text)
 			self.wallet_keys['seed'] = response['result']['key']
 		except:
@@ -876,7 +876,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 		lastSetting = config['wallet']['connection']
 		if obj == self.hDropDownNode.items[0]:
 			config['wallet']['connection'] = 'local'
-			config['wallet']['url'] = 'http://127.0.0.1:38422'
+			config['wallet']['url'] = 'http://127.0.0.1:38302'
 		elif obj == self.hDropDownNode.items[1]:
 			config['wallet']['connection'] = 'ext1'
 			config['wallet']['url'] = 'http://'
@@ -962,7 +962,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.hButtonLogout.hide()
 					self.pipe = 'logout'
 					try:
-						requests.post('http://127.0.0.1:38420/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+						requests.post('http://127.0.0.1:383407/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
 					except:
 						pass
 				#submit password (On wallet opening)
@@ -1147,9 +1147,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.hLabelNetworkHashrate.setText("Network hashrate: " + str(diff))
 		walletInfo = GetWalletBalance()
 		#locked and unlocked balance calculations
-		self.walletBalance = walletInfo['result']['unlocked_balance'] / 1000000000
-		self.walletBalanceLocked = (walletInfo['result']['balance'] / 1000000000) - self.walletBalance
-		if self.walletBalanceLocked < 0:
+		if walletInfo == -1:
+			self.walletBalance = "Unknown"
+			self.walletBalanceLocked = "Unknown"
+		else:
+			self.walletBalance = walletInfo['result']['unlocked_balance'] / 1000000000
+			self.walletBalanceLocked = (walletInfo['result']['balance'] / 1000000000) - self.walletBalance
+		if self.walletBalanceLocked != "Unknown" and self.walletBalanceLocked < 0:
 			self.walletBalanceLocked *=-1
 			self.walletBalance -= self.walletBalanceLocked
 		if self.networkSync and self.networkSync > 1:
@@ -1207,7 +1211,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					daemon = True
 				else:
 					print('ERROR: Unable connect to external node')
-					daemon_url = 'http://127.0.0.1:38422'
+					daemon_url = 'http://127.0.0.1:38301'
 			#starting local node and waiting for connection
 			if not daemon:
 				print('INFO: Starting local node...')
@@ -1254,12 +1258,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						new_wallet_process = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir "' + config['wallet']['workdir'] + '" --rpc-bind-port 38420 --disable-rpc-login',stdout=DEVNULL,  shell=True)#, creationflags = CREATE_NO_WINDOW)
+						new_wallet_process = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir "' + config['wallet']['workdir'] + '" --rpc-bind-port 38340 --disable-rpc-login',stdout=DEVNULL,  shell=True)#, creationflags = CREATE_NO_WINDOW)
 						while True:
 							if not self.running:
 								return
 							try:
-								respond = requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + self.filename + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
+								respond = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + self.filename + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
 								if respond.status_code == 200:
 									break
 							except:
@@ -1319,6 +1323,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				self.UpdateKeys()
 				#i dont remember why this shit exist here but leave that
 				if walletAddresses:
+					print(walletAddresses)
 					self.wallet_address = walletAddresses['result']['address']
 				self.UpdateWalletAddress()
 				self.UpdateBalance()
@@ -1360,8 +1365,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 		url = daemon_url[7:].split(':')
 		addr = url[0]
 		port = url[1]
+		return 'ok'
 		#running wallet rpc
-		self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38420 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'] , stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+		self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38340 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + config['wallet']['url'], shell=True)# , stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
 		threading.Timer(0, self.BinStdRead).start()
 		walletRPC = False
 		#waiting for respond or crash
@@ -1378,6 +1384,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				else:
 					return 'wrongpassword'
 		else:
+			sleep(5)
 			return 'ok'
 
 	#running wallet in offline mode, it's not offline in meaning of without networking but only for GUI debbuging
@@ -1413,7 +1420,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 	
 	#read transactions from wallet then add them to table, scan and add incoming transactions to table
 	def UpdateTransactions(self):
-		response = json.loads(requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_height"}', headers={'Content-Type':'application/json'}).text)
+		try:
+			response = json.loads(requests.post('http://127.0.0.1:38420/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_height"}', headers={'Content-Type':'application/json'}).text)
+		except:
+			pass
+			print("ERROR: Can't get wallet sync height")
+			return
 		#checking wallet rpc is synced with daemon
 		if response['result']['height'] != self.networkSync:
 			return
@@ -1461,8 +1473,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 		self.notQueue.put([time, hash, amount])
 	
 	def UpdateBalance(self):
-		self.hLabelBalanceValue.setText('%.6f' % self.walletBalance)
-		self.hLabelBalanceLockedValue.setText('%.6f' % self.walletBalanceLocked)
+		if self.walletBalance != "Unknown":
+			self.hLabelBalanceValue.setText('%.6f' % self.walletBalance)
+			self.hLabelBalanceLockedValue.setText('%.6f' % self.walletBalanceLocked)
+		else:
+			self.hLabelBalanceValue.setText("Unknown")
+			self.hLabelBalanceLockedValue.setText("Unknown")
 		
 	def UpdateKeys(self):
 		self.hInputSpend.setText(self.wallet_keys['spend'])
