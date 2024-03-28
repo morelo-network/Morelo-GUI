@@ -69,7 +69,7 @@ python -m pip install qrcode[pil]
 python -m pip install requests
 python -m pip install psutil
 ```
-If some another package is missed, script will tell you during execution.
+If some other package is missed, script will tell you during execution.
 
 
 ### Usage
@@ -82,9 +82,23 @@ If you using another OS than windows you need run python script manually:
 python Morelo-GUI.py
 ```
 
-
 ## Contact
 
-Krzysztof Walędziak - E-mail: mrkris7100@gmail.com - [Discord](https://discordapp.com/): Mrkris7100#1836
+**Main Developer and Maintainer:**  
+Krzysztof Walędziak  
+- E-mail: mrkris7100@gmail.com  
+- Discord: Mrkris7100#1836  
 
-Project Link: [https://github.com/Morelo-Network/Morelo-GUI](https://github.com/MORELO-PROJECT/Morelo-GUI)
+## Project Link
+[Morelo GUI Repository](https://github.com/Morelo-Network/Morelo-GUI)
+
+## Morelo MRL Information
+
+- **Website:** [Morelo Network](http://morelonetwork.pl)
+- **Explorer:** [Morelo Explorer](http://explorer.morelonetwork.pl)
+- **Official Devs Pool:** [Morelo Devs Pool](http://pool.morelonetwork.pl)
+- **GitHub:** [Morelo GitHub Repository](http://github.com/MoreloNetwork/morelo)
+
+## Disclaimer
+
+Please note that the Morelo community operates under open-source principles. Any contributions or suggestions are welcomed and encouraged. The project is subject to continuous improvement and development by the community. 
