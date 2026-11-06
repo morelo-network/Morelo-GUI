@@ -1,4 +1,8 @@
-import version
+from modules.transactions import *
+from modules.morelo import *
+from modules.version import *
+from modules.db import *
+
 missingLibs = False
 try:
 	import math
@@ -121,6 +125,12 @@ except:
 	print('ERROR: Missing module, try install it by command: python -m pip install image')
 	missingLibs = True
 try:
+	import shutil
+except:
+	pass
+	print('ERROR: Missing module, try install it by command: python -m pip install shutil')
+	missingLibs = True
+try:
 	from PyQt5.QtWidgets import *
 	from PyQt5.QtGui import *
 	from PyQt5.QtCore import *
@@ -201,6 +211,7 @@ initStyle = '''
 		color: white;
 	}
 '''
+
 #modyfing controls (widgets) style attributes
 def GUICtrlSetBkColor(control, color):
 	control.mybackgroundcolor = color
@@ -243,55 +254,16 @@ def find_str(s, char):
 
 	return -1
 	
-def SendTransaction(receiver, amount, pay_id):
-	response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"transfer","params":{"destinations":[{"amount":' + str(int(amount * 1000000000)) +',"address":"' + receiver +'"}]}}', headers={'Content-Type':'application/json'})
-	return json.loads(response.text)
-   
-def GetWalletBalance():
-	response = -1
-	try:
-		response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_balance","params":{"account_index":0}', headers={'Content-Type':'application/json'})
-		response = json.loads(response.text)
-	except:
-		print("ERROR: Can't get wallet's balance")
-	return response
-   
-def GetWalletAddress():
-	response = False
-	try:
-		response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_address","params":{"account_index":0}', headers={'Content-Type':'application/json'})
-		response = json.loads(response.text)
-	except:
-		pass
-	return response
-
-def GetWalletTransactions(start, count):
-	transactions = []
-	response = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"filter_by_height":true, "pending":true, "in":true, "out":true, "min_height":' + str(start) + ', "max_height":' + str(start + count) +'}}', headers={'Content-Type':'application/json'})
-	data = json.loads(response.text)
-	if 'in' in data['result']:
-		for block in data['result']['in']:
-			transactions.append(block['txid'])
-	if 'out' in data['result']:
-		for block in data['result']['out']:
-			transactions.append(block['txid'])
-	#else:
-	#	print("ERROR: Can't get transaction list")
-	#	print(data)
-	return transactions
 	
-def GetTransactionInfo(hash):
-	response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"get_transfer_by_txid","params":{"txid":"' + hash + '"}}', headers={'Content-Type':'application/json'})
-	return json.loads(response.text)
 
 class Worker(QRunnable):
-    def __init__(self, fn, *args, **kwargs):
-        super(Worker, self).__init__()
-        self.fn = fn
+	def __init__(self, fn, *args, **kwargs):
+		super(Worker, self).__init__()
+		self.fn = fn
 
-    @pyqtSlot()
-    def run(self):
-        self.fn()
+	@pyqtSlot()
+	def run(self):
+		self.fn()
 		
 #Main window class
 class App(QWidget):
@@ -301,6 +273,7 @@ class App(QWidget):
 	def __init__(self):
 		#initial values for some variables
 		super().__init__()
+		self.transactions = Transactions()
 		self.threadpool = QThreadPool()
 		self.ctrlCount = 0
 		self.walletRPC = 0
@@ -322,6 +295,14 @@ class App(QWidget):
 		print('INFO: Window config initialized')
 		self.initUI()
 		
+		#Start wallet network thread
+		self.net_thread = Worker(self.NetworkThread)
+		self.threadpool.start(self.net_thread)
+
+		# Request morelo price in background thread
+		self.price_thread = Worker(self.PriceThread)
+		self.threadpool.start(self.price_thread)
+
 	#custom close event
 	def closeEvent(self, event):
 		#checking if minimize to tray instead of closing checbox is checked
@@ -336,13 +317,10 @@ class App(QWidget):
 				config.write(configfile)
 			#check wallet was launched in offline mode
 			if not '--offline' in app.arguments():
-				try:
 				#send close signal to wallet's rpc
-					requests.post('http://127.0.0.1:38340/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
-				except:
-					pass
+				self.morelo.wallet.stop()
 				#close daemon
-				if self.xi_daemon: self.xi_daemon.terminate()
+				self.morelo.daemon.stop()
 			#destroy tray icon
 			self.tray_icon.hide()
 			#close background thread
@@ -352,7 +330,7 @@ class App(QWidget):
 	def initUI(self):
 		print('INFO: Generating window controls')
 		#window title and size
-		self.setWindowTitle('Morelo GUI Wallet v' + version.version)
+		self.setWindowTitle('Morelo GUI Wallet v' + version)
 		self.setFixedSize(800, 470)
 		self.tabsControls = {}
 		
@@ -364,7 +342,7 @@ class App(QWidget):
 		self.hLabelLogo.setAlignment(Qt.AlignCenter)
 		self.hLabelInit = self.GUICtrlCreateLabel('Initializing...', 470, 100, 0, 0, 0, 0, '14px')
 		self.hLabelInit.hide()
-		#self.hLabelCopyrights = self.GUICtrlCreateLabel('All rights reserved © 2019-2020 MrKris7100', 520, 450, 0, 0, 0, 0, '12px')
+		#self.hLabelCopyrights = self.GUICtrlCreateLabel('All rights reserved © 2019-2023 MrKris7100', 520, 450, 0, 0, 0, 0, '12px')
 		self.hLabelTip = self.GUICtrlCreateLabel('What you want to do?', 250, 320, 300, 0, 0, 0, '14px')
 		self.hLabelTip.setAlignment(Qt.AlignCenter)
 		self.hLabelTip.hide()
@@ -425,8 +403,9 @@ class App(QWidget):
 		#Network status
 		self.hLabelNetwork = self.GUICtrlCreateLabel("Network status:", 5, 448, 0, 0, 'transparent', 0, '14px', 'bold')
 		self.hLabelNetworkStatus = self.GUICtrlCreateLabel("Disconnected", 125, 450, 150, 0, 'transparent', '#fc7c7c', '11px', 'bold')
-		self.hLabelNetworkDiff = self.GUICtrlCreateLabel("Network diff: 1000000000", 300, 450, 190, 0, 'transparent', 0, '11px', 'bold')
-		self.hLabelNetworkHashrate = self.GUICtrlCreateLabel("Network hashrate: 0", 555, 450, 190, 0, 'transparent', 0, '11px', 'bold')
+		self.hLabelNetworkDiff = self.GUICtrlCreateLabel("Network diff: 1000000000", 250, 450, 190, 0, 'transparent', 0, '11px', 'bold')
+		self.hLabelNetworkHashrate = self.GUICtrlCreateLabel("Network hashrate: 0", 400, 450, 190, 0, 'transparent', 0, '11px', 'bold')
+		self.hLabelMoreloPrice = self.GUICtrlCreateLabel("Price: Unknown", 600, 450, 190, 0, 'transparent', 0, '11px', 'bold')
 		#Navigation
 		self.activeTab = self.hButtonSend = self.GUICtrlCreateButton('Send', 0, 150, 200, 35, 'rgba(230, 140, 0, 50%)', 'white')
 		self.hButtonReceive = self.GUICtrlCreateButton("Receive", 0, 185, 200, 35)
@@ -440,7 +419,7 @@ class App(QWidget):
 											self.hLabelBalanceValue, self.hLabelBalanceLocked, self.hLabelBalanceLockedValue,
 											self.hLabelNetwork, self.hButtonSend, self.hButtonReceive,
 											self.hButtonHistory, self.hButtonSettings, self.hLabelNetworkStatus, self.hButtonAbout,
-											self.hLabelNetworkDiff, self.hLabelNetworkHashrate]
+											self.hLabelNetworkDiff, self.hLabelNetworkHashrate, self.hLabelMoreloPrice]
 		
 		#Send TAB
 		self.hInputAmount = self.GUICtrlCreateInput('', 215, 30, 250, 30, 'rgba(255, 0, 0, 15%)')
@@ -557,7 +536,7 @@ class App(QWidget):
 		self.hTableTransactions.horizontalHeader().resizeSection(2, 163)
 		self.tabsControls[self.hButtonHistory.objectName()] = [self.hTableTransactions]
 		#About TAB
-		self.hLabelAbout = self.GUICtrlCreateLabel('''Morelo GUI Wallet v''' + version.version + '''
+		self.hLabelAbout = self.GUICtrlCreateLabel('''Morelo GUI Wallet v''' + version + '''
 
 Author: MrKris7100
 
@@ -629,62 +608,31 @@ If you enjoy the program you can support me by donating some MRL using button be
 			ctrl.hide()
 		self.tray_icon.show()
 		self.show()
-		#Wallet initialization (background thread)
-		thread = Worker(self.NetworkThread)
-		self.threadpool.start(thread) 
 	
 	def GetWalletKeys(self):
+		self.wallet_keys = self.morelo.wallet.get_keys()
+		if not self.wallet_keys:
+			print("ERROR: Can't read wallet keys")
+
+	def MoreloGetPrice(self):
 		try:
-			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}', headers={'Content-Type':'application/json'})
-			response = json.loads(response.text)
-			self.wallet_keys['view'] = response['result']['key']
+			response = requests.get("https://xeggex.com/api/v2/asset/getbyticker/MRL", headers={'Content-Type': 'application/json'})
+			data = json.loads(response.text)
+			self.morelo_price = data['usdValue']
 		except:
-			print("ERROR: Can't read wallet view key")
-		try:
-			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}', headers={'Content-Type':'application/json'})
-			response = json.loads(response.text)
-			self.wallet_keys['spend'] = response['result']['key']
-		except:
-			print("ERROR: Can't read wallet spend key")
-		try:
-			response = requests.post('http://127.0.0.1:38340/json_rpc',data='{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"mnemonic"}}', headers={'Content-Type':'application/json'})
-			response = json.loads(response.text)
-			self.wallet_keys['seed'] = response['result']['key']
-		except:
-			print("ERROR: Can't read wallet mnemonic seed")
-	
-	def GetNodeInfo(self):
-		response = False
-		try:
-			response = requests.post(daemon_url + '/json_rpc', data='{"method" : "sync_info", "id" : "0", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
-			response2 = requests.post(daemon_url + '/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_connections"}', headers={'Content-Type':'application/json'})
-			response3 = requests.post(daemon_url + '/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_info"}', headers={'Content-Type':'application/json'})
-		except:
-			pass
-		if response and response2 and response3:
-			#some shitty mixing responses json
-			response.json = json.loads(response.text)
-			response.json['result']['difficulty'] = 0
-			response2 = json.loads(response2.text)
-			response3 = json.loads(response3.text)
-			target_height = 0
-			if 'connections' in response2['result']:
-				for conn in response2['result']['connections']:
-					if conn['height'] > target_height:
-						target_height = conn['height']
-			response.json['result']['target_height'] = target_height
-			if response3: response.json['result']['difficulty'] = response3['result']['difficulty']
-		return response
-		
-	def WaitForDaemon(self):
-		timeout = TimerInit()
-		while TimerDiff(timeout) < 15000:
-			nodeInfo = self.GetNodeInfo()
-			if nodeInfo and 'result' in nodeInfo.json:
-				return True
-			sleep(0.5)
-		return False
-	
+			self.morelo_price = "Unknown"
+
+	def PriceThread(self):
+		self.MoreloGetPrice()
+		self.hLabelMoreloPrice.setText("Price: " + str(self.morelo_price) + " USD")
+		interval = Timer()
+		while self.running:
+			if interval.get() > 60000:
+				interval.reset()
+				self.MoreloGetPrice()
+				self.hLabelMoreloPrice.setText("Price: " + str(self.morelo_price) + " USD")
+			sleep(0.05)
+
 	#detecting hover event on create / open / restore wallet buttons and modify "tooltip" with right text
 	def eventFilter(self, obj, event):
 		type = event.type()
@@ -847,7 +795,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 		input.move(left, top)
 		input.type = 'QLineEdit'
 		input.setFixedSize(width, height)
-		input.myfontsize = fontisze if fontsize else '14px'
+		# Use the actual parameter so explicitly requested input font sizes are preserved.
+		input.myfontsize = fontsize if fontsize else '14px'
 		input.myfontweight = fontweight if fontweight else 'bold'
 		input.mybackgroundcolor = background if background else 'rgba(255, 255, 255, 15%)'
 		input.mycolor = color if color else 'rgb(230, 140, 0)'
@@ -859,22 +808,18 @@ If you enjoy the program you can support me by donating some MRL using button be
 		return input
 		
 	#network status update function (visual)
-	def XiNetworkSetState(self, iState, iPercent = 0):
-		if iState != self.XiNetworkState:
-			self.XiNetworkState = iState
-			if self.XiNetworkState == 0:
-				print('INFO: Network disconnected')
-				GUICtrlSetColor(self.hLabelNetworkStatus, '#fc7c7c')
-				self.hLabelNetworkStatus.setText("Disconnected")
-			elif self.XiNetworkState == 1:
+	def NetworkState(self, state, percent = 0):
+		match state:
+			case 1:
 				GUICtrlSetColor(self.hLabelNetworkStatus, '#f7ff91')
-				self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % iPercent + "%)")
-			elif self.XiNetworkState == 2:
-				print('INFO: Network synced')
+				self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % percent + "%)")
+			case 2:
 				GUICtrlSetColor(self.hLabelNetworkStatus, 'rgb(26, 188, 156)')
 				self.hLabelNetworkStatus.setText("Synced")
-		elif iState == 1:
-			self.hLabelNetworkStatus.setText("Syncing (" + '%.2f' % iPercent + "%)")
+			case 3: 
+				GUICtrlSetColor(self.hLabelNetworkStatus, '#fc7c7c')
+				self.hLabelNetworkStatus.setText("Disconnected")
+		self.XiNetworkState = state
 	
 	#node type selection
 	def SelectNode(self):
@@ -884,10 +829,10 @@ If you enjoy the program you can support me by donating some MRL using button be
 			config['wallet']['connection'] = 'local'
 			config['wallet']['url'] = 'http://127.0.0.1:38302'
 		elif obj == self.hDropDownNode.items[1]:
-			config['wallet']['connection'] = 'ext1'
-			config['wallet']['url'] = 'http://'
+			config['wallet']['connection'] = 'remote'
+			config['wallet']['url'] = 'http://80.60.19.222:38302' #Sniper's public node
 		elif obj == self.hDropDownNode.items[2]:
-			config['wallet']['connection'] = 'ext2'
+			config['wallet']['connection'] = 'remote'
 			config['wallet']['url'] = 'http://'
 		elif obj == self.hDropDownNode.items[3]:
 			config['wallet']['connection'] = 'custom'
@@ -912,6 +857,9 @@ If you enjoy the program you can support me by donating some MRL using button be
 					else:
 						for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
 							ctrl.hide()
+				if self.activeTab == self.hButtonSettings:
+					for ctrl in self.tabsControls['keys']:
+						ctrl.hide()
 				GUICtrlSetBkColor(self.activeTab, 'rgba(255, 255, 255, 15%)')
 				GUICtrlSetColor(self.activeTab, 'rgb(230, 140, 0)')
 				for ctrl in self.tabsControls[self.activeTab.objectName()]:
@@ -924,6 +872,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 			else:
 				#Initial config ok button
 				if obj == self.hButtonOk:
+					for ctrl in [self.hLabelUrl, self.hInputUrl, self.hLabelUrlPort, self.hInputUrlPort]:
+							ctrl.hide()
 					self.pipe = 'config'
 				#Show keys button
 				elif obj == self.hButtonKeys:
@@ -949,7 +899,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					print(file_path)
 					if file_path and pathlib.Path(file_path).exists():
 						self.hInputPath.setText(file_path)
-						config['wallet']['workdir'] = '"' + file_path + '"'
+						config['wallet']['workdir'] = file_path
 					self.hDropDownNode.hButtonSelect.setEnabled(True)
 					self.hButtonBrowse.setEnabled(True)
 					self.hButtonOk.setEnabled(True)
@@ -968,7 +918,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 					self.hButtonLogout.hide()
 					self.pipe = 'logout'
 					try:
-						requests.post('http://127.0.0.1:383407/json_rpc', data='{"method" : "stop_wallet", "id" : "", "jsonrpc" : "2.0"}', headers={'Content-Type':'application/json'})
+						self.morelo.wallet.stop()
 					except:
 						pass
 				#submit password (On wallet opening)
@@ -1012,9 +962,12 @@ If you enjoy the program you can support me by donating some MRL using button be
 					file_path = filedialog.askopenfilename(title='Select wallet file', filetypes=[('All files', '*')])
 					tkroot.destroy()
 					if pathlib.Path(file_path).is_file():
-						config['wallet']['path'] = '"' + file_path + '"'
+						filename = file_path.split("/").pop()
+						config['wallet']['file'] = filename
 						with open("Wallet.ini", "w") as configfile:
 							config.write(configfile)
+						shutil.copyfile(file_path, config['wallet']['workdir'] + "/" + filename)
+						shutil.copyfile(file_path + ".keys", config['wallet']['workdir'] + "/" + filename + ".keys")
 						self.hLabelInit.show()
 						self.hButtonCreate.hide()
 						self.hButtonOpen.hide()
@@ -1027,7 +980,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 				#Wallet create button
 				elif obj == self.hButtonCreate:
 					random_container = randomString(10)
-					config['wallet']['path'] = '"' + str(pathlib.Path(config['wallet']['workdir'] + '/' + random_container + '"'))
+					config['wallet']['file'] = str(pathlib.Path(random_container))
 					self.filename = random_container
 					self.hButtonCreate.hide()
 					self.hButtonOpen.hide()
@@ -1053,7 +1006,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.controlBlink(3, 0.15)
 						sending = False
 					if sending:
-						respond = SendTransaction(self.hInputAddress.text(), float(self.hInputAmount.text()), 133791)
+						respond = self.morelo.wallet.transfer(self.hInputAddress.text(), float(self.hInputAmount.text()), self.hInputPaymentID.text())
 						self.hInputAddress.setText('')
 						self.hInputAmount.setText('')
 						if 'error' in respond:
@@ -1101,7 +1054,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 				self.hLabelAddressErr.setText('')
 				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 255, 255, 15%)')
 			else:
-				self.hLabelAddressErr.setText('Invalid address' if obj.text != '' else 'Please enter address')
+				# Calling text() checks the entered value; the bound method itself is always truthy.
+				self.hLabelAddressErr.setText('Invalid address' if obj.text() != '' else 'Please enter address')
 				
 		elif obj == self.hInputUrl:
 			if obj.text() == '' or obj.text()[0:7] != 'http://':
@@ -1126,52 +1080,65 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def blinkProc(self, times, delay):
 		for i in range(times):
 			if not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance: self.hLabelAmountErr.hide()
-			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAddressErr.hide()
+			# Blink address feedback from the address validator, not from the amount field.
+			if not self.hInputAddress.hasAcceptableInput(): self.hLabelAddressErr.hide()
 			sleep(delay)
 			if self.activeTab != self.hButtonSend: break
 			if not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance: self.hLabelAmountErr.show()
-			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAddressErr.show()
+			# Keep address feedback synchronized with its own validation state.
+			if not self.hInputAddress.hasAcceptableInput(): self.hLabelAddressErr.show()
 			sleep(delay)
 	
+	#Get network height from blockchain explorer
+	#https://github.com/monero-project/monero/issues/1404
+	#Problem with target_height in response
+	def GetNetworkHeight(self):
+		try:
+			response = requests.get("https://explorer.morelonetwork.pl/api/networkinfo", headers={'Content-Type': 'application/json'})
+			data = json.loads(response.text)
+			return data['data']['height']
+		except:
+			return 0
+	
 	#network status update 
-	def XiNetworkUpdate(self):
-		nodeInfo = self.GetNodeInfo()
-		self.nodeSync = nodeInfo.json['result']['height']
-		self.networkSync = nodeInfo.json['result']['target_height']
-		diff = nodeInfo.json['result']['difficulty']
+	def NetworkUpdate(self):
+		if not self.running:
+			return
+		wallet_height = self.morelo.wallet.get_height()
+		wallet_height = wallet_height['result']['height']
+		nodeInfo = self.morelo.daemon.get_info()
+		self.nodeSync = nodeInfo['result']['height']
+		#self.networkSync = nodeInfo['result']['target_height']
+		#Get network height from explorer
+		self.networkSync = self.GetNetworkHeight()
+		print(self.nodeSync, self.networkSync)
+		diff = nodeInfo['result']['difficulty']
 		self.hLabelNetworkDiff.setText("Network diff: " + str(diff))
 		diff = math.floor(diff / 120)
 		#hashrate formatting
-		if diff < 1000000000:
+		if diff < 1000:
+			diff = str(diff) + " H/s"
+		elif diff < 1000000:
+			diff = str('%.2f' % (diff / 1000)) + " kH/s"
+		elif diff < 1000000000:
 			diff = str('%.2f' % (diff / 1000000)) + " MH/s"
-		else: 
-			if diff < 1000000:
-				diff = str('%.2f' % (diff / 1000)) + " kH/s"
-			else:
-				if diff < 1000:
-					diff = str(diff) + " H/s"
 		self.hLabelNetworkHashrate.setText("Network hashrate: " + str(diff))
-		walletInfo = GetWalletBalance()
+		walletInfo = self.morelo.wallet.get_balance()
 		#locked and unlocked balance calculations
-		if walletInfo == -1:
-			self.walletBalance = "Unknown"
-			self.walletBalanceLocked = "Unknown"
-		else:
+		if walletInfo:
 			self.walletBalance = walletInfo['result']['unlocked_balance'] / 1000000000
 			self.walletBalanceLocked = (walletInfo['result']['balance'] / 1000000000) - self.walletBalance
-		if self.walletBalanceLocked != "Unknown" and self.walletBalanceLocked < 0:
-			self.walletBalanceLocked *=-1
-			self.walletBalance -= self.walletBalanceLocked
-		if self.networkSync and self.networkSync > 1:
-			if self.nodeSync < self.networkSync:
-				self.XiNetworkSetState(1, self.nodeSync / self.networkSync * 100)
-			else:
-				self.XiNetworkSetState(2)
+			if self.walletBalanceLocked < 0:
+				self.walletBalanceLocked *= -1
+		if wallet_height < self.networkSync:
+			self.NetworkState(1, wallet_height / self.networkSync * 100)
 		else:
-			self.XiNetworkSetState(0)
-	#magic background thread
+			if self.XiNetworkState != 2:
+				self.NetworkState(2)
+				print('INFO: Network synced')
+	
+    #Background thread
 	def NetworkThread(self):
-		global daemon_url
 		#Initial config
 		if not pathlib.Path("Wallet.ini").is_file():
 			print('INFO: No wallet config, initial setup')
@@ -1182,7 +1149,7 @@ If you enjoy the program you can support me by donating some MRL using button be
 			self.hInputUrl.move(450, 220)
 			self.hLabelUrlPort.move(450, 255)
 			self.hInputUrlPort.move(450, 270)
-			while True:
+			while self.running:
 				if self.pipe == 'config':
 					break
 			self.hDropDownNode.move(215, 175)
@@ -1200,62 +1167,60 @@ If you enjoy the program you can support me by donating some MRL using button be
 			print('INFO: Config saved')
 		#reading config file
 		config.read("Wallet.ini")
-		daemon_url = config['wallet']['url']
 		self.hLabelInit.show()
 		if '--offline' in app.arguments():
 			print('INFO: Running wallet in offline mode')
 			self.runOffline()
 		else:
 			daemon = False
-			#killing morelod process if exists
-			if ProcessExists("morelod"):
-				ProcessClose("morelod")
-			#checking connection with external node if is choosen
+			local = True if config["wallet"]["connection"] == "local" else False
+				
+			#Initializing morelo daemon and wallet RPC
+			self.morelo = Morelo(config['wallet']['workdir'], d_url = config['wallet']['url'], local=local)
+			
+			#Check connection with external node if is choosen
 			if config['wallet']['connection'] != 'local':
 				print('INFO: Connecting to', config['wallet']['url'] + '...')
-				if self.WaitForDaemon():
+				if self.morelo.daemon.wait():
 					daemon = True
 				else:
-					print('ERROR: Unable connect to external node')
-					daemon_url = 'http://127.0.0.1:38301'
-			#starting local node and waiting for connection
+					print('ERROR: Unable connect to external node, using local instead')
+					self.morelo = Morelo(config['wallet']['workdir'], d_url = "http://127.0.0.1:38301", local=True)
+                    
+			#Waiting for connection to daemon
 			if not daemon:
-				print('INFO: Starting local node...')
-				self.xi_daemon = Popen(os.getcwd() + '/morelod --add-exclusive-node 80.60.19.222 --data-dir "' + config['wallet']['workdir'], shell=True)#, stdout=PIPE, shell=True)
-				if self.WaitForDaemon():
+				print('INFO: Connecting to local node...')
+				if self.morelo.daemon.wait():
 					daemon = True
 				else:
 					print('ERROR: Unable connect to local node')
-			#closing wallet if something was fucking wrong with connection
+
+            #Waiting for wallet RPC
+			self.morelo.wallet.wait();
+			#Closing wallet if something was fucking wrong with connection
 			if not daemon:
 				print('ERROR: No connection to daemon, closing wallet...')
 				sleep(2.5)
 				self.close()
 				return
+			#checking wallet in config exists or is not configured
+			if not pathlib.Path(config['wallet']['workdir'] + '/' + config['wallet']['file']).is_file():
+                #if no show open / create / restore wallet buttons
+				print('ERROR: Wallet file not found')
+				self.hButtonCreate.show()
+				self.hButtonOpen.show()
+				self.hButtonRestore.show()
+				self.hLabelTip.show()
+				self.hLabelInit.hide()
 			else:
-				#checking wallet in config exists or is not configured
-				if not pathlib.Path(config['wallet']['workdir'] + '/' + config['wallet']['path']).is_file():
-					#if no show open / create / restore wallet buttons
-					print('ERROR: Wallet file not found')
-					self.hButtonCreate.show()
-					self.hButtonOpen.show()
-					self.hButtonRestore.show()
-					self.hLabelTip.show()
-					self.hLabelInit.hide()
-				else:
-					#if yes we going further
-					print('INFO: Wallet file found')
-					self.pipe = 'walletrpc'
-			#Run wallet RPC
-			self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-dir "' + config['wallet']['workdir'] + '" --rpc-bind-port 38340 --disable-rpc-login',stdout=DEVNULL,  shell=True)#, creationflags = CREATE_NO_WINDOW)
+				#if yes we going further
+				print('INFO: Loading wallet file', config['wallet']['workdir'] + '/' + config['wallet']['file'])
+				self.pipe = 'walletrpc'
 			#magic here
 			#\/ this loop for logout and re logging feature
-			while True:
+			while self.running:
 				#\/ this loop waiting for user choice if any wallet doesnt exist or we logout
-				while True:
-					#closing background thread
-					if not self.running:
-						return
+				while self.running:
 					#we going to run wallet rpc
 					if self.pipe == 'walletrpc':
 						break
@@ -1266,33 +1231,19 @@ If you enjoy the program you can support me by donating some MRL using button be
 						self.hLabelPassSet.hide()
 						self.hInputPass.hide()
 						self.hButtonPassSet.hide()
-						while True:
-							if not self.running:
-								return
-							try:
-								respond = requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"create_wallet","params":{"filename":"' + self.filename + '","password":"' + self.pwd + '","language":"English"}}', headers={'Content-Type':'application/json'})
-								if respond.status_code == 200:
-									break
-							except:
-								pass
+						while self.running:
+							respond = self.morelo.wallet.create(config['wallet']['file'], self.hInputPass.text())
+							print(respond)
+							if 'result' in respond:
+								break
 						#update wallet config
 						with open("Wallet.ini", "w") as configfile:
 							config.write(configfile)
 						break
 					else:
 						sleep(0.05)
-				#wallet-rpc initializing
-				#if ProcessExists("morelo-wallet-rpc"):
-				#	ProcessClose("morelo-wallet-rpc")
-				#new wallet is generated
-				#if self.pwd == -1:
-				#	print('INFO: Starting wallet-rpc (New wallet generated)')
-				#else:
-				#	print('INFO: Starting wallet-rpc (Checking that have password)')
 				#next magic loop
-				while True:
-					if not self.running:
-						return
+				while self.running:
 					result = self.WaitForWalletRPC()
 					#password is good or wallet doesnt have password
 					if result == 'ok':
@@ -1323,12 +1274,11 @@ If you enjoy the program you can support me by donating some MRL using button be
 				else:
 					print('INFO: Wallet started (Password is correct)')
 				#i dont remember why this shit exist here but leave that
-				walletAddresses = GetWalletAddress()
-				if walletAddresses:
-					print(walletAddresses)
-					self.wallet_address = walletAddresses['result']['address']
+				self.wallet_address = self.morelo.wallet.get_address()
+				print('INFO: Wallet address:', self.wallet_address)
 				self.UpdateWalletAddress()
 				self.UpdateBalance()
+				self.NetworkUpdate()
 				#hide some controls and show other
 				self.hLabelInit.hide()
 				self.hLabelLogo.hide()
@@ -1345,44 +1295,37 @@ If you enjoy the program you can support me by donating some MRL using button be
 					#generate QrCode for our wallet address
 					self.UpdateQrCode()
 				#main networking and notifications loop
+				updateInterval = Timer()
 				while self.running and self.pipe != 'logout':
 					try:
 						item = self.notQueue.get(False)
 						if not int(config['wallet']['disablenotifications']): self.tray_icon.showMessage('New transaction', item[0] + '\nNew transaction found\nTx hash (' + item[1] + ')\nAmount: ' + item[2], msecs=2500)
 					except:
 						pass
-					self.XiNetworkUpdate()
-					self.UpdateBalance()
-					self.UpdateTransactions()
-					sleep(2.5)
+					if updateInterval.get() > 2500:
+						self.NetworkUpdate()
+						self.UpdateBalance()
+						self.UpdateTransactions()
+						updateInterval.reset()
+					sleep(0.05)
 				#finally the end of this fucking loops magic
-			
+
 	#running wallet rpc and waiting for his respond
 	def WaitForWalletRPC(self):
-		#addressand port parsing
-		url = daemon_url[7:].split(':')
-		addr = url[0]
-		port = url[1]
 		#opening wallet using RPC
-		response = json.loads(requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"open_wallet","params":{"filename":"' + config['wallet']['path'] + '","password":""}}', headers={'Content-Type':'application/json'}).text)
-		#read wallet address
-		self.GetWalletKeys()
-		self.UpdateKeys()
-		#self.walletRPC = Popen(os.getcwd() + '/morelo-wallet-rpc --wallet-file "' + config['wallet']['path'] + '" --password "' + str(self.pwd) + '" --rpc-bind-port 38340 --disable-rpc-login --log-level 1 --trusted-daemon --daemon-address ' + addr + ':' + port, stdout=PIPE, shell=True)#, creationflags = CREATE_NO_WINDOW)
+		response = self.morelo.wallet.open(config['wallet']['file'], self.hInputPass.text())
 		walletRPC = False
 		#waiting for respond or crash
-		while self.walletRPC.poll() is None:
-			rpc = GetWalletBalance()
-			if rpc != -1:
-				walletRPC = True
-				break
-		if not walletRPC:
-			stdout = str(self.walletRPC.communicate()[0])
-			if 'invalid password' in stdout:
-				if self.pwd == '':
-					return 'requirepassword'
-				else:
-					return 'wrongpassword'
+		if 'result' in response:
+			walletRPC = True
+			return 'ok'
+		if 'error' in response:
+			if response['code'] == -1:
+				return 'retry'
+			if self.pwd == '':
+				return 'requirepassword'
+			else:
+				return 'wrongpassword'
 		else:
 			return 'ok'
 
@@ -1419,64 +1362,50 @@ If you enjoy the program you can support me by donating some MRL using button be
 	
 	#read transactions from wallet then add them to table, scan and add incoming transactions to table
 	def UpdateTransactions(self):
+		print('INFO: checking for transactions')
+		# lastScan is the next height to request, so equality with the tip still needs scanning.
+		if not self.running or not self.networkSync or self.networkSync <= 1 or self.scanning or self.lastScan > self.networkSync:
+			return
+		self.scanning = True
+		# Scan bounded, non-overlapping height ranges and advance the cursor only after success.
+		scan_start = max(1, self.lastScan)
+		scan_count = min(10000, self.networkSync - scan_start + 1)
+		full_scan = self.lastScan < 1
 		try:
-			response = json.loads(requests.post('http://127.0.0.1:38340/json_rpc', data='{"jsonrpc":"2.0","id":"0","method":"get_height"}', headers={'Content-Type':'application/json'}).text)
-		except:
-			print("ERROR: Can't get wallet sync height")
-			return
-		#checking wallet rpc is synced with daemon
-		if response['result']['height'] != self.networkSync:
-			return
-		transactions = []
-		fullScan = False
-		#checking is there new network height
-		if self.networkSync and self.networkSync > 1 and self.lastScan != self.networkSync and not self.scanning:
-			self.scanning = True
-			if self.lastScan < 2:
-				#wallet just started so we need full wallet scan
+			if full_scan:
 				print('INFO: Full tx list request')
-				fullScan = True
-				transactions = GetWalletTransactions(1, self.networkSync)
-				self.lastScan = self.networkSync
-			#new network height so we scanning new range for incoming transactions
-			elif self.networkSync - self.lastScan > 0:
-				print('INFO: Partial tx list request, blocks from', self.lastScan, ' to ', self.networkSync)
-				transactions =  GetWalletTransactions(self.lastScan - 1, self.networkSync - self.lastScan) 
-				self.lastScan = self.networkSync
 			else:
-				self.scanning = False
-				return
-			#any transactions for our wallet?
-			if len(transactions):
-				#Get transactions hashes list
-				for transaction in transactions:
-					tx_info = GetTransactionInfo(transaction)
-					date = datetime.datetime.fromtimestamp(int(tx_info['result']['transfer']['timestamp']))
-					amount = tx_info['result']['transfer']['amount']
-					amount = amount / 1000000000
-					if tx_info['result']['transfer']['type'] == 'out':
-						amount = amount * -1
-					self.addTx.emit([str(date), transaction, '%.6f' % amount])
-					if not fullScan and tx_info['result']['transfer']['type'] == 'in':
-						print('New transaction found! Amount:' + str(amount) + ' (' + transaction + ')')
-						self.IncomingTx(transaction, str(amount), str(date))
-				#sort table
-				self.sortTx.emit()
-				print('INFO: ', len(transactions), 'transactions added to table')
-			else:
-				print('INFO: No new transactions found')
+				print('INFO: Partial tx list request, blocks from', scan_start, 'to', scan_start + scan_count - 1)
+			transactions = self.morelo.wallet.get_transfers(scan_start, scan_count)
+			for transaction in transactions:
+				# Prevent duplicate table entries and notifications when a range is retried.
+				if self.transactions.get(transaction):
+					continue
+				tx_info = self.morelo.wallet.get_transfer(transaction)
+				transfer = tx_info['result']['transfer']
+				self.transactions.add(tx_info)
+				date = datetime.datetime.fromtimestamp(int(transfer['timestamp']))
+				amount = transfer['amount'] / 1000000000
+				if transfer['type'] == 'out':
+					amount *= -1
+				self.addTx.emit([str(date), transaction, '%.6f' % amount])
+				if not full_scan and transfer['type'] == 'in':
+					print('New transaction found! Amount:' + str(amount) + ' (' + transaction + ')')
+					self.IncomingTx(transaction, str(amount), str(date))
+			self.lastScan = scan_start + scan_count
+			print('INFO: ', len(transactions), 'transactions added to table')
+		except (KeyError, TypeError, ValueError, requests.RequestException) as error:
+			# Keep the cursor unchanged after an RPC failure so the missing range is retried.
+			print("ERROR: Can't update transaction history:", error)
+		finally:
 			self.scanning = False
 	
 	def IncomingTx(self, hash, amount, time):
 		self.notQueue.put([time, hash, amount])
 	
 	def UpdateBalance(self):
-		if self.walletBalance != "Unknown":
-			self.hLabelBalanceValue.setText('%.6f' % self.walletBalance)
-			self.hLabelBalanceLockedValue.setText('%.6f' % self.walletBalanceLocked)
-		else:
-			self.hLabelBalanceValue.setText("Unknown")
-			self.hLabelBalanceLockedValue.setText("Unknown")
+		self.hLabelBalanceValue.setText('%.6f' % self.walletBalance)
+		self.hLabelBalanceLockedValue.setText('%.6f' % self.walletBalanceLocked)
 		
 	def UpdateKeys(self):
 		self.hInputSpend.setText(self.wallet_keys['spend'])
@@ -1583,9 +1512,9 @@ style = '''
 		'''
 
 if __name__ == '__main__':
-	donate_address = 'enter donate address here'
+	donate_address = 'emo1MrKriSGc5AfEyUaEMMExVkKpPbNXSiUcNdNWX4W8KK5NH8E9zMiBi35QJii89SYwZmSyNBdWUYmGFJvphYUM4qRL5E33bq'
 	config = configparser.ConfigParser()
-	config['wallet'] = {'workdir' : '"' + str(pathlib.Path(str(pathlib.Path.home()) + '/morelo"')), 'path' : '', 'url' : 'http://127.0.0.1:38422', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
+	config['wallet'] = {'workdir' : str(pathlib.Path(str(pathlib.Path.home()) + '/morelo')), 'file' : '', 'url' : 'http://127.0.0.1:38302', 'connection' : 'local', 'trayclose' : 0, 'disablenotifications' : 0}
 	if not '--offline' in sys.argv:
 		#check morelo binaries exists
 		pathwalletRPC = 'morelo-wallet-rpc.exe' if os.name == 'nt' else 'morelo-wallet-rpc'
