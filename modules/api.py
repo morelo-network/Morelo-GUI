@@ -1,6 +1,15 @@
 import requests
-import json
-import random
+from decimal import Decimal
+
+
+def _post_json_rpc(url, method, params=None):
+	# Bound RPC waits and let HTTP/JSON failures reach callers instead of silently parsing bad responses.
+	payload = {"jsonrpc": "2.0", "id": "0", "method": method}
+	if params is not None:
+		payload["params"] = params
+	response = requests.post(url, json=payload, timeout=10)
+	response.raise_for_status()
+	return response.json()
 
 class API():
 	def __init__(self, d_url = 'http://127.0.0.1:38302', w_port = 38340):
@@ -10,15 +19,9 @@ class API():
 	class Wallet():
 		def __init__(self, w_port):
 			self.port = w_port
-			self.headers = {'Content-Type': 'application/json'}
 			
 		def post(self, method, params=None):
-			if params is not None:
-				data = json.dumps({"jsonrpc": "2.0", "id": "0", "method": method, "params": params})
-			else:
-				data = json.dumps({"jsonrpc": "2.0", "id": "0", "method": method})
-			response = requests.post('http://127.0.0.1:' + str(self.port) + '/json_rpc', data=data, headers=self.headers)
-			return json.loads(response.text)
+			return _post_json_rpc('http://127.0.0.1:' + str(self.port) + '/json_rpc', method, params)
 			
 		def open(self, file, password = ""):
 			return self.post("open_wallet", {"filename": file, "password": password})
@@ -27,7 +30,11 @@ class API():
 			return self.post("create_wallet", {"filename": file, "password": password, "language": "English"})
 			
 		def transfer(self, receipent, amount, txid = "", index = 0):
-			return self.post("transfer", {"account_index": index, "destinations":[{"amount": str(int(amount * 1000000000)), "address": receipent}], "payment_id": str(txid)})
+			# Decimal conversion prevents floating-point rounding from changing the atomic-unit send amount.
+			amount_atomic = Decimal(str(amount)) * Decimal(1000000000)
+			if not amount_atomic.is_finite() or amount_atomic <= 0 or amount_atomic != amount_atomic.to_integral_value():
+				raise ValueError("Amount must be a positive value with at most 9 decimal places")
+			return self.post("transfer", {"account_index": index, "destinations":[{"amount": int(amount_atomic), "address": receipent}], "payment_id": str(txid)})
 		
 		def get_address(self):
 			return self.post("get_address", {"account_index":0})
@@ -41,18 +48,14 @@ class API():
 		def get_balance(self, index = 0):
 			try:
 				response = self.post("get_balance", {"account_index": index})
-				#if index and 'per_subaddress' in response['result']: #Why if index?
-				if 'per_subaddress' in response['result']:
-					for addr in response['result']['per_subaddress']:
-						if addr['account_index'] == index:
-							return {"result": addr}
-				else:
-					return {'result': {'unlocked_balance': 0, 'balance': 0}}
-			except:
+				# Use the account-level totals; per-subaddress entries are not account balances.
+				return {"result": response["result"]}
+			except (requests.RequestException, ValueError, KeyError, TypeError):
 				return {'result': {'unlocked_balance': -1, 'balance': -1}}
 
 		def get_transfers(self, start, count):
-			return self.post("get_transfers", {"filter_by_height": True, "pending": False, "in": True, "out": True, "min_height": str(start), "max_height": str(start + count)})
+			# Use an inclusive upper bound for exactly count heights and send numeric RPC fields.
+			return self.post("get_transfers", {"filter_by_height": True, "pending": False, "in": True, "out": True, "min_height": int(start), "max_height": int(start + count - 1)})
 		
 		def get_transfer(self, tx_hash):
 			return self.post("get_transfer_by_txid", {"txid": tx_hash})
@@ -90,15 +93,9 @@ class API():
 	class Daemon():
 		def __init__(self, url):
 			self.url = url
-			self.headers = {'Content-Type': 'application/json'}
 
 		def post(self, method, params=None):
-			if params is not None:
-				data = json.dumps({"jsonrpc": "2.0", "id": "0", "method": method, "params": params})
-			else:
-				data = json.dumps({"jsonrpc": "2.0", "id": "0", "method": method})
-			response = requests.post(self.url + '/json_rpc', data=data, headers=self.headers)
-			return json.loads(response.text)
+			return _post_json_rpc(self.url.rstrip('/') + '/json_rpc', method, params)
 			
 		def get_info(self):
 			return self.post("get_info")

@@ -5,6 +5,15 @@ import time
 import os
 import signal
 import atexit
+import os
+import subprocess
+
+
+def _process_options():
+	# CREATE_NEW_PROCESS_GROUP is Windows-only, so only pass it on platforms that define it.
+	if os.name == 'nt':
+		return {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
+	return {}
 
 class Morelo():
 	def __init__(self, workdir, local = True, d_url = 'http://127.0.0.1:38302', w_port = 38340):
@@ -19,14 +28,20 @@ class Morelo():
 			self.local = local
 			if self.local:
 				self.process = self.run(workdir)
-				atexit.register(self.process.terminate)
+				# A stopped child may already have exited when Python runs its shutdown hooks.
+				atexit.register(self.stop)
 			
 		def run(self, workdir):
-			return subprocess.Popen(os.getcwd() + '/morelod --data-dir "' + workdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+			# Pass each argument separately so paths with spaces work without shell parsing.
+			return subprocess.Popen([os.path.join(os.getcwd(), 'morelod'), '--data-dir', workdir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_process_options())
 
 		def stop(self):
 			if self.local:
-				return os.kill(self.process.pid, signal.SIGTERM)
+				# Avoid raising when the daemon has already shut down.
+				if self.process.poll() is None:
+					self.process.terminate()
+					return True
+				return False
 			else:
 				return False
 
@@ -65,7 +80,8 @@ class Morelo():
 		def __init__(self, workdir, w_port, api, d_url):
 			self.api = api
 			self.process = self.run(workdir, w_port, d_url)
-			atexit.register(self.process.terminate)
+			# A stopped child may already have exited when Python runs its shutdown hooks.
+			atexit.register(self.stop)
 
 		def wait(self):
 			timeout = Timer()
@@ -79,13 +95,21 @@ class Morelo():
 				time.sleep(1)
 			return False
 		def stop(self):
-			return self.api.wallet.stop()
+			# Stop the RPC service cleanly, falling back to process termination on RPC failure.
+			try:
+				return self.api.wallet.stop()
+			except Exception:
+				if self.process.poll() is None:
+					self.process.terminate()
+				return False
 			
 		def create(self, filename, password = ""):
 			return self.api.wallet.create(filename, password)
 			
 		def run(self, workdir, w_port, d_url):
-			return subprocess.Popen(os.getcwd() + '/morelo-wallet-rpc --daemon-addres ' + d_url + ' --wallet-dir "' + workdir + '" --rpc-bind-port ' + str(w_port) + ' --disable-rpc-login', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)#, creationflags = CREATE_NO_WINDOW)
+			# Use the wallet RPC's correctly spelled daemon flag and avoid shell string parsing.
+			args = [os.path.join(os.getcwd(), 'morelo-wallet-rpc'), '--daemon-address', d_url, '--wallet-dir', workdir, '--rpc-bind-port', str(w_port), '--disable-rpc-login']
+			return subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_process_options())
 		
 		def open(self, file, password = ""):
 			return self.api.wallet.open(file, password)

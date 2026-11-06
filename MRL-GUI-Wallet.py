@@ -795,7 +795,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 		input.move(left, top)
 		input.type = 'QLineEdit'
 		input.setFixedSize(width, height)
-		input.myfontsize = fontisze if fontsize else '14px'
+		# Use the actual parameter so explicitly requested input font sizes are preserved.
+		input.myfontsize = fontsize if fontsize else '14px'
 		input.myfontweight = fontweight if fontweight else 'bold'
 		input.mybackgroundcolor = background if background else 'rgba(255, 255, 255, 15%)'
 		input.mycolor = color if color else 'rgb(230, 140, 0)'
@@ -1053,7 +1054,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 				self.hLabelAddressErr.setText('')
 				GUICtrlSetBkColor(self.hInputAddress, 'rgba(255, 255, 255, 15%)')
 			else:
-				self.hLabelAddressErr.setText('Invalid address' if obj.text != '' else 'Please enter address')
+				# Calling text() checks the entered value; the bound method itself is always truthy.
+				self.hLabelAddressErr.setText('Invalid address' if obj.text() != '' else 'Please enter address')
 				
 		elif obj == self.hInputUrl:
 			if obj.text() == '' or obj.text()[0:7] != 'http://':
@@ -1078,11 +1080,13 @@ If you enjoy the program you can support me by donating some MRL using button be
 	def blinkProc(self, times, delay):
 		for i in range(times):
 			if not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance: self.hLabelAmountErr.hide()
-			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAddressErr.hide()
+			# Blink address feedback from the address validator, not from the amount field.
+			if not self.hInputAddress.hasAcceptableInput(): self.hLabelAddressErr.hide()
 			sleep(delay)
 			if self.activeTab != self.hButtonSend: break
 			if not self.hInputAmount.hasAcceptableInput() or float(self.hInputAmount.text()) + 0.01 > self.walletBalance: self.hLabelAmountErr.show()
-			if not self.hInputAmount.hasAcceptableInput(): self.hLabelAddressErr.show()
+			# Keep address feedback synchronized with its own validation state.
+			if not self.hInputAddress.hasAcceptableInput(): self.hLabelAddressErr.show()
 			sleep(delay)
 	
 	#Get network height from blockchain explorer
@@ -1359,62 +1363,40 @@ If you enjoy the program you can support me by donating some MRL using button be
 	#read transactions from wallet then add them to table, scan and add incoming transactions to table
 	def UpdateTransactions(self):
 		print('INFO: checking for transactions')
-		if not self.running:
+		if not self.running or not self.networkSync or self.networkSync <= 1 or self.scanning or self.lastScan >= self.networkSync:
 			return
+		self.scanning = True
+		# Scan bounded, non-overlapping height ranges and advance the cursor only after success.
+		scan_start = max(1, self.lastScan)
+		scan_count = min(10000, self.networkSync - scan_start + 1)
+		full_scan = self.lastScan < 1
 		try:
-			response = self.morelo.wallet.get_height()
-		except:
-			print("ERROR: Can't get wallet sync height")
-			return
-		#checking wallet rpc is synced with daemon
-		#if response['result']['height'] != self.networkSync:
-		#	return
-		transactions = []
-		fullScan = False
-		#checking is there new network height
-		if self.networkSync and self.networkSync > 1 and self.lastScan != self.networkSync and not self.scanning:
-			self.scanning = True
-			if self.lastScan < 2:
-				#wallet just started so we need full wallet scan
+			if full_scan:
 				print('INFO: Full tx list request')
-				fullScan = True
-				transactions = self.morelo.wallet.get_transfers(1, self.lastScan + 10000) #Scan 10000 blocks at once
-				self.lastScan = self.lastScan + 10000
-				if self.lastScan > self.networkSync:
-					self.lastScan = self.networkSync
-			#new network height so we scanning new range for incoming transactions
-			elif self.networkSync - self.lastScan > 0:
-				print('INFO: Partial tx list request, blocks from', self.lastScan, ' to ', self.networkSync)
-				transactions =  self.morelo.wallet.get_transfers(self.lastScan - 1, self.lastScan + 10000) 
-				self.lastScan = self.lastScan + 10000
-				if self.lastScan > self.networkSync:
-					self.lastScan = self.networkSync
 			else:
-				self.scanning = False
-				return
-			#any transactions for our wallet?
-			if len(transactions):
-				#Get transactions hashes list
-				for transaction in transactions:
-					tx_info = self.morelo.wallet.get_transfer(transaction)
-					self.transactions.add(tx_info)
-					date = datetime.datetime.fromtimestamp(int(tx_info['result']['transfer']['timestamp']))
-					amount = tx_info['result']['transfer']['amount']
-					amount = amount / 1000000000
-					if tx_info['result']['transfer']['type'] == 'out':
-						amount = amount * -1
-					self.addTx.emit([str(date), transaction, '%.6f' % amount])
-					if not fullScan and tx_info['result']['transfer']['type'] == 'in':
-						print('New transaction found! Amount:' + str(amount) + ' (' + transaction + ')')
-						self.IncomingTx(transaction, str(amount), str(date))
-						
-				print(self.transactions)
-				#sort table if not scanning
-				if not self.scanning:
-					self.sortTx.emit()
-				print('INFO: ', len(transactions), 'transactions added to table')
-			else:
-				print('INFO: No new transactions found')
+				print('INFO: Partial tx list request, blocks from', scan_start, 'to', scan_start + scan_count - 1)
+			transactions = self.morelo.wallet.get_transfers(scan_start, scan_count)
+			for transaction in transactions:
+				# Prevent duplicate table entries and notifications when a range is retried.
+				if self.transactions.get(transaction):
+					continue
+				tx_info = self.morelo.wallet.get_transfer(transaction)
+				transfer = tx_info['result']['transfer']
+				self.transactions.add(tx_info)
+				date = datetime.datetime.fromtimestamp(int(transfer['timestamp']))
+				amount = transfer['amount'] / 1000000000
+				if transfer['type'] == 'out':
+					amount *= -1
+				self.addTx.emit([str(date), transaction, '%.6f' % amount])
+				if not full_scan and transfer['type'] == 'in':
+					print('New transaction found! Amount:' + str(amount) + ' (' + transaction + ')')
+					self.IncomingTx(transaction, str(amount), str(date))
+			self.lastScan = scan_start + scan_count
+			print('INFO: ', len(transactions), 'transactions added to table')
+		except (KeyError, TypeError, ValueError, requests.RequestException) as error:
+			# Keep the cursor unchanged after an RPC failure so the missing range is retried.
+			print("ERROR: Can't update transaction history:", error)
+		finally:
 			self.scanning = False
 	
 	def IncomingTx(self, hash, amount, time):
