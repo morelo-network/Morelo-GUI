@@ -1,11 +1,8 @@
-import subprocess
 from modules.timer import *
 from modules.api import *
 import time
 import os
-import signal
 import atexit
-import os
 import subprocess
 
 

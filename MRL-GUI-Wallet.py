@@ -1363,7 +1363,8 @@ If you enjoy the program you can support me by donating some MRL using button be
 	#read transactions from wallet then add them to table, scan and add incoming transactions to table
 	def UpdateTransactions(self):
 		print('INFO: checking for transactions')
-		if not self.running or not self.networkSync or self.networkSync <= 1 or self.scanning or self.lastScan >= self.networkSync:
+		# lastScan is the next height to request, so equality with the tip still needs scanning.
+		if not self.running or not self.networkSync or self.networkSync <= 1 or self.scanning or self.lastScan > self.networkSync:
 			return
 		self.scanning = True
 		# Scan bounded, non-overlapping height ranges and advance the cursor only after success.
